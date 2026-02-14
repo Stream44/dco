@@ -1,0 +1,32 @@
+name: 'DCO Check'
+description: 'Validate Developer Certificate of Origin (DCO) signatures on all commits'
+author: 'Stream44'
+
+inputs:
+  enforceSignatureFingerprints:
+    description: 'Enforce that SSH signature fingerprints on commits match those recorded in .dco-signatures'
+    required: false
+    default: 'false'
+
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate DCO
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/validate.sh
+        ENFORCE_FLAG=""
+        if [[ "${{ inputs.enforceSignatureFingerprints }}" == "true" ]]; then
+          ENFORCE_FLAG="--enforce-signature-fingerprints"
+        fi
+        ${{ github.action_path }}/validate.sh $ENFORCE_FLAG
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_REF: ${{ github.base_ref }}
+        GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        GITHUB_BEFORE: ${{ github.event.before }}
+        GITHUB_SHA: ${{ github.sha }}
