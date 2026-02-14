@@ -1,4 +1,4 @@
-name: Validate DCO Signatures
+name: DCO Signatures
 on: [push, pull_request]
 jobs:
   dco:

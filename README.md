@@ -89,7 +89,7 @@ line in the respective commit messages and the same is found in `.dco-signatures
 Add to `.github/workflows/dco.yml` in your repository:
 
 ```yaml
-name: Validate DCO Signatures
+name: DCO Signatures
 on: [push, pull_request]
 jobs:
   dco:
@@ -106,6 +106,8 @@ jobs:
 
 Provenance
 ===
+
+[![Gordian Open Integrity](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yml?query=branch%3Amain) [![DCO Signatures](https://github.com/Stream44/dco/actions/workflows/dco.yml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/dco.yml?query=branch%3Amain)
 
 Repository DID: `did:repo:d241cef226ebb7495bcbe8422c889ffc088c2b50`
 
