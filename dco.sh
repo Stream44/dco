@@ -10,7 +10,31 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+function _resolveSelfDir {
+    local SOURCE="$1"
+    local DIR=""
+    if [[ $SOURCE != /* ]]; then
+        SOURCE="$(cd "$(dirname "$SOURCE")" && pwd)/$(basename "$SOURCE")"
+    fi
+    while [[ -h "$SOURCE" ]]; do
+        DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+        SOURCE="$(readlink "$SOURCE")"
+        [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+    done
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    echo "${DIR}"
+}
+
+if [[ -n "${BASH_SOURCE[0]}" ]]; then
+    _script_path="${BASH_SOURCE[0]}"
+elif [[ -n "${(%):-%x}" ]]; then
+    _script_path="${(%):-%x}"
+else
+    echo "ERROR: Cannot determine script location" >&2
+    exit 1
+fi
+
+SCRIPT_DIR="$(_resolveSelfDir "$_script_path")"
 
 # Default subcommand is 'commit'
 SUBCOMMAND="${1:-commit}"
