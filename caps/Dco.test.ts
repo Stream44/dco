@@ -1,7 +1,7 @@
 #!/usr/bin/env bun test
 
 import * as bunTest from 'bun:test'
-import { run } from 't44/workspace-rt'
+import { run } from 't44/standalone-rt'
 import { join } from 'path'
 import { rm, mkdir, writeFile, readFile, copyFile, access } from 'fs/promises'
 import { constants, existsSync } from 'fs'
