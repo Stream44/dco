@@ -389,8 +389,31 @@ fi
 echo -e "${GREEN}✓ --enforce-signature-fingerprints correctly fails on unsigned commits${NC}"
 echo
 
-# Test validate.sh --enforce-signature-fingerprints on the signed repo (should pass)
-echo -e "${BOLD}${YELLOW}Testing --enforce-signature-fingerprints on signed repo...${NC}"
+# Test validate.sh --enforce-signature-fingerprints on the signed repo WITHOUT allowedSignersFile
+# This simulates the GitHub Actions environment where gpg.ssh.allowedSignersFile is not configured.
+# The fix extracts SSH fingerprints directly from raw commit objects instead of relying on %G?/%GK.
+echo -e "${BOLD}${YELLOW}Testing --enforce-signature-fingerprints WITHOUT allowedSignersFile (GitHub Actions scenario)...${NC}"
+cd "$SIGNED_REPO"
+
+# Ensure allowedSignersFile is NOT set (simulates GitHub Actions)
+git config --unset gpg.ssh.allowedSignersFile 2>/dev/null || true
+
+VALIDATE_OUTPUT=$(./validate.sh "" HEAD --enforce-signature-fingerprints 2>&1) || {
+    echo -e "${RED}✗ FAIL: --enforce-signature-fingerprints should pass without allowedSignersFile${NC}"
+    echo "$VALIDATE_OUTPUT"
+    exit 1
+}
+echo "$VALIDATE_OUTPUT"
+
+if ! echo "$VALIDATE_OUTPUT" | grep -q "Signature fingerprints: enforced"; then
+    echo -e "${RED}✗ FAIL: Output should contain 'Signature fingerprints: enforced'${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ --enforce-signature-fingerprints passes WITHOUT allowedSignersFile (raw commit extraction)${NC}"
+echo
+
+# Test validate.sh --enforce-signature-fingerprints on the signed repo WITH allowedSignersFile
+echo -e "${BOLD}${YELLOW}Testing --enforce-signature-fingerprints on signed repo (with allowedSignersFile)...${NC}"
 cd "$SIGNED_REPO"
 
 # Set up allowed signers for git to verify SSH signatures
