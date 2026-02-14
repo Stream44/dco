@@ -456,11 +456,13 @@ main() {
     # If git arguments were provided, run git commit with --signoff
     if [[ ${#git_args[@]} -gt 0 ]]; then
         verbose_log "Running git commit with signoff and args: ${git_args[*]}"
-        local sign_args=()
+        local config_args=()
+        local commit_args=()
         if [[ -n "$SIGNING_KEY" ]]; then
-            sign_args+=(-c 'gpg.format=ssh' -c "user.signingkey=$SIGNING_KEY" --gpg-sign)
+            config_args+=(-c 'gpg.format=ssh' -c "user.signingkey=$SIGNING_KEY")
+            commit_args+=(--gpg-sign)
         fi
-        git_commit_with_sign --signoff "${sign_args[@]}" "${git_args[@]}"
+        git "${config_args[@]}" commit --signoff "${commit_args[@]}" "${git_args[@]}"
     fi
 }
 
