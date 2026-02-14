@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "envelope": "ur:envelope/lrtpsotanshdhdcxdkchoebkgohkmyahwnmevtvtrhmytpjsztzemdfdtkvydsjecwpetyimmwfljpksoyaylftpsohdgltansgylftanshfhdcxdthsctfzbdihfmueaygdlpsfrtoeswaxlkeoaobyhpiofsindtfymylosaeofneotansgrhdcxchweztoevyckleryrdsslaiawdgtperyckfplbtkbbwytljotkfnesiycmfhspeeoycsfncsfgoycsfztpsohdjktngdgmgwhflfaxhdimyawzaxjtlddndnlecyqzvdclkskotksafsskdmlgwpbgdszmrerncmuofpaxmkkeahluwnmoidbsiypedmaozsneykjpplurloolghesjedwjtbzstimswwladghiartaxjptaeemewdesehahvybtfleowsjsvavwmtvarfsbwkhestknprpywncycmfpsbssfristkahtniectuofgoytpsojyfljljpieinhsjtgwjoihjtgajtjyihiojpinjykktpsokshnjkjkisdpihieeyececehescxfpfpfpfpfxeoglknhsfxehjzhtfygaehglghfeecfpfpfpfpgagdjtgoknhkfxgokpkkgmflgmgleogsdniofdemksksghgaidhdethfjnjegtecfxfphfeeflkphdkkjzkogwfecxjyeeeedpjkiniojtinjtiodpjeihkkutztrteh",
+  "mark": "0fbc3988",
+  "$defs": {
+    "envelope": {
+      "$ref": "https://datatracker.ietf.org/doc/draft-mcnally-envelope/"
+    },
+    "mark": {
+      "$ref": "https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2025-001-provenance-mark.md"
+    }
+  }
+}
+---
+# Repository DID: did:repo:d241cef226ebb7495bcbe8422c889ffc088c2b50
+# Current Mark: 0fbc3988 (🅑 BIAS ROOF EYES LOGO)
+# Inception Mark: 1275c22f (🅑 BRAG KEEP SAGA DULL)
+# XID(2417a20a) [
+#     'key': Bytes(78) [
+#         'allow': 'All'
+#     ]
+#     'provenance': Bytes(115)
+#     "GordianOpenIntegrity": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPnUzYCUuyRGRN3L+gH7xxTIbX8VmkM5CAV4GuXylvOE t44-signing-key"
+# ]
+# Trust established using https://github.com/Stream44/t44-BlockchainCommons.com
