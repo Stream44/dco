@@ -86,7 +86,7 @@ The github action enforces DCO sign-offs by ensuring all commits have a `Signed-
 line in the respective commit messages and the same is found in `.dco-signatures`.
 
 
-Add to `.github/workflows/dco.yml` in your repository:
+Add to `.github/workflows/dco.yaml` in your repository:
 
 ```yaml
 name: DCO Signatures
@@ -107,7 +107,7 @@ jobs:
 Provenance
 ===
 
-[![Gordian Open Integrity](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yml?query=branch%3Amain) [![DCO Signatures](https://github.com/Stream44/dco/actions/workflows/dco.yml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/dco.yml?query=branch%3Amain)
+[![Gordian Open Integrity](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yaml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yaml?query=branch%3Amain) [![DCO Signatures](https://github.com/Stream44/dco/actions/workflows/dco.yaml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/dco.yaml?query=branch%3Amain)
 
 Repository DID: `did:repo:d241cef226ebb7495bcbe8422c889ffc088c2b50`
 
