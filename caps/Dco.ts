@@ -140,9 +140,19 @@ export async function capsule({
                             console.log('[DCO] exitCode:', exitCode)
                             console.log('[DCO] stdout length:', stdout.length)
                             console.log('[DCO] stderr length:', stderr.length)
+
                             if (exitCode !== 0) {
-                                console.log('[DCO] FAILED - stdout preview:', stdout.substring(0, 300))
-                                console.log('[DCO] FAILED - stderr preview:', stderr.substring(0, 300))
+                                console.log('[DCO] ========== VALIDATION FAILED ==========')
+                                console.log('[DCO] Exit code:', exitCode)
+                                console.log('[DCO] Working directory:', context.repoDir)
+                                console.log('[DCO] Script path:', dcoScript)
+                                console.log('[DCO] Full stdout:')
+                                console.log(stdout)
+                                console.log('[DCO] Full stderr:')
+                                console.log(stderr)
+                                console.log('[DCO] ==========================================')
+                            } else {
+                                console.log('[DCO] Validation PASSED')
                             }
                             console.log('[DCO] === VALIDATE END ===')
 
