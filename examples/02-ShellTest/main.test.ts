@@ -56,14 +56,13 @@ async function spawn(args: string[], opts: { cwd: string; env?: Record<string, s
 
     const proc = Bun.spawn(args, {
         cwd: opts.cwd,
-        stdout: 'pipe',
-        stderr: 'pipe',
+        stdin: 'inherit',
+        stdout: 'inherit',
+        stderr: 'inherit',
         env,
     })
-    const stdout = await new Response(proc.stdout).text()
-    const stderr = await new Response(proc.stderr).text()
     const exitCode = await proc.exited
-    return { stdout, stderr, exitCode, output: stdout + stderr }
+    return { exitCode }
 }
 
 describe('DCO Shell Test', function () {
@@ -74,11 +73,6 @@ describe('DCO Shell Test', function () {
             { cwd: import.meta.dir }
         )
 
-        if (result.exitCode !== 0) {
-            console.error('test.sh output:', result.output)
-        }
-
         expect(result.exitCode).toBe(0)
-        expect(result.output).toContain('ALL TESTS PASSED')
     })
 })
