@@ -7,14 +7,6 @@ import { rm, mkdir, writeFile, readFile, copyFile, access } from 'fs/promises'
 import { constants, existsSync } from 'fs'
 import { $ } from 'bun'
 
-// Clear GitHub-specific env vars to isolate test repos from CI environment
-// These would otherwise cause validate.sh to use the wrong commit SHAs
-delete process.env.GITHUB_EVENT_NAME
-delete process.env.GITHUB_BASE_REF
-delete process.env.GITHUB_HEAD_SHA
-delete process.env.GITHUB_BEFORE
-delete process.env.GITHUB_SHA
-
 const WORK_DIR = join(import.meta.dir, '.~dco')
 
 const {

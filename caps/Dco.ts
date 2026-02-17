@@ -62,11 +62,20 @@ export async function capsule({
                             args.push('--signing-key', context.signingKeyPath)
                         }
 
+                        // Create clean env without GitHub vars for test isolation
+                        const env = { ...process.env }
+                        delete env.GITHUB_EVENT_NAME
+                        delete env.GITHUB_BASE_REF
+                        delete env.GITHUB_HEAD_SHA
+                        delete env.GITHUB_BEFORE
+                        delete env.GITHUB_SHA
+
                         const proc = Bun.spawn(args, {
                             cwd: repoDir,
                             stdin: autoAgree ? 'pipe' : 'inherit',
                             stdout: 'inherit',
                             stderr: 'inherit',
+                            env,
                         })
                         const exitCode = await proc.exited
 
@@ -128,10 +137,19 @@ export async function capsule({
                             if (context.headRef) args.push(context.headRef)
                             console.log('[DCO] spawn args:', args)
 
+                            // Create clean env without GitHub vars for test isolation
+                            const env = { ...process.env }
+                            delete env.GITHUB_EVENT_NAME
+                            delete env.GITHUB_BASE_REF
+                            delete env.GITHUB_HEAD_SHA
+                            delete env.GITHUB_BEFORE
+                            delete env.GITHUB_SHA
+
                             const proc = Bun.spawn(args, {
                                 cwd: context.repoDir,
                                 stdout: 'pipe',
                                 stderr: 'pipe',
+                                env,
                             })
                             const exitCode = await proc.exited
                             const stdout = await new Response(proc.stdout).text()
