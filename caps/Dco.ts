@@ -104,8 +104,9 @@ export async function capsule({
                         if (capsuleStruct?.moduleFilepath) {
                             packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
                         } else {
-                            const url = new URL(import.meta.url)
-                            packageDir = dirname(dirname(url.pathname))
+                            throw new Error(`Unable to get capsuleStruct!`)
+                            // const url = new URL(import.meta.url)
+                            // packageDir = dirname(dirname(url.pathname))
                         }
 
                         const dcoScript = join(packageDir, 'dco.sh')
@@ -113,7 +114,6 @@ export async function capsule({
                         if (context.baseBranch) args.push(context.baseBranch)
                         if (context.headRef) args.push(context.headRef)
 
-                        // Create clean env without GitHub vars for test isolation
                         const env = { ...process.env }
                         delete env.GITHUB_EVENT_NAME
                         delete env.GITHUB_BASE_REF
