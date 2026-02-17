@@ -28,7 +28,7 @@
         "validate": "./validate.sh"
     },
     "dependencies": {
-        "@stream44.studio/encapsulate": "^0.4.0-rc.12",
+        "@stream44.studio/encapsulate": "^0.4.0-rc.13",
         "t44": "^0.4.0-rc.14"
     },
     "devDependencies": {

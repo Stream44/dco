@@ -109,7 +109,7 @@ Provenance
 
 [![Gordian Open Integrity](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yaml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/gordian-open-integrity.yaml?query=branch%3Amain) [![DCO Signatures](https://github.com/Stream44/dco/actions/workflows/dco.yaml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/dco.yaml?query=branch%3Amain)
 
-Repository DID: `did:repo:d241cef226ebb7495bcbe8422c889ffc088c2b50`
+Repository DID: `did:repo:8b9bc7c9912c017867cec575f90811e3671e0212`
 
 <table>
   <tr>
