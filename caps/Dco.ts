@@ -51,7 +51,7 @@ export async function capsule({
                         }
 
                         // Resolve commit.sh from this package
-                        const packageDir = dirname(require.resolve('@stream44.studio/dco/package.json'))
+                        const packageDir = dirname(dirname(this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath))
                         const dcoScript = join(packageDir, 'dco.sh')
 
                         const args = ['bash', dcoScript, 'commit']
@@ -89,7 +89,7 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        const packageDir = dirname(require.resolve('@stream44.studio/dco/package.json'))
+                        const packageDir = dirname(dirname(this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath))
                         const dcoScript = join(packageDir, 'dco.sh')
 
                         const args = ['bash', dcoScript, 'validate']
