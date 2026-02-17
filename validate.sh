@@ -82,6 +82,29 @@ fi
 echo -e "${BLUE}Checking commits between ${BOLD}$BASE_BRANCH${NC}${BLUE} and ${BOLD}$HEAD_REF${NC}"
 echo
 
+# Verify HEAD_REF exists in this repository
+if ! git rev-parse --verify "$HEAD_REF" >/dev/null 2>&1; then
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}${BOLD}  ERROR: Invalid HEAD reference${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo
+    echo -e "${RED}The specified HEAD_REF does not exist in this repository:${NC}"
+    echo -e "  ${BOLD}$HEAD_REF${NC}"
+    echo
+    echo -e "${YELLOW}This usually means:${NC}"
+    echo -e "  1. You're validating a test repository with a GitHub commit SHA"
+    echo -e "  2. The commit hasn't been fetched yet"
+    echo -e "  3. The reference is incorrect"
+    echo
+    echo -e "${CYAN}Current repository commits (last 5):${NC}"
+    git log --oneline -5 2>/dev/null || echo "  (no commits)"
+    echo
+    echo -e "${CYAN}Available refs:${NC}"
+    git show-ref --heads --tags 2>/dev/null | head -10 || echo "  (no refs)"
+    echo
+    exit 128
+fi
+
 # Get the commit range
 if [[ -n "$BASE_BRANCH" ]]; then
     COMMITS=$(git rev-list "$BASE_BRANCH..$HEAD_REF" 2>/dev/null || git rev-list "$HEAD_REF")
