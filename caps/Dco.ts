@@ -89,52 +89,48 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        console.log('[DCO DEBUG] this:', Object.keys(this))
-                        console.log('[DCO DEBUG] capsule struct:', this['#@stream44.studio/encapsulate/structs/Capsule'])
+                        try {
+                            let packageDir: string
+                            const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
 
-                        let packageDir: string
-                        const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
+                            if (capsuleStruct?.moduleFilepath) {
+                                packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
+                                console.log('[DCO] Using moduleFilepath:', packageDir)
+                            } else {
+                                // Fallback: use import.meta.url
+                                const url = new URL(import.meta.url)
+                                packageDir = dirname(dirname(url.pathname))
+                                console.log('[DCO] Using import.meta fallback:', packageDir)
+                            }
 
-                        if (capsuleStruct && capsuleStruct.moduleFilepath) {
-                            const moduleFilepath = capsuleStruct.moduleFilepath
-                            console.log('[DCO DEBUG] moduleFilepath:', moduleFilepath)
-                            packageDir = dirname(dirname(moduleFilepath))
-                        } else {
-                            // Fallback: try to resolve from import.meta.url
-                            console.log('[DCO DEBUG] moduleFilepath not available, using fallback')
-                            console.log('[DCO DEBUG] import.meta.url:', import.meta.url)
-                            const currentDir = dirname(new URL(import.meta.url).pathname)
-                            packageDir = dirname(currentDir)
-                        }
+                            const dcoScript = join(packageDir, 'dco.sh')
 
-                        console.log('[DCO DEBUG] packageDir:', packageDir)
-                        const dcoScript = join(packageDir, 'dco.sh')
-                        console.log('[DCO DEBUG] dcoScript:', dcoScript)
+                            const args = ['bash', dcoScript, 'validate']
+                            if (context.baseBranch) args.push(context.baseBranch)
+                            if (context.headRef) args.push(context.headRef)
 
-                        const args = ['bash', dcoScript, 'validate']
-                        if (context.baseBranch) args.push(context.baseBranch)
-                        if (context.headRef) args.push(context.headRef)
-                        console.log('[DCO DEBUG] args:', args)
-                        console.log('[DCO DEBUG] cwd:', context.repoDir)
+                            const proc = Bun.spawn(args, {
+                                cwd: context.repoDir,
+                                stdout: 'pipe',
+                                stderr: 'pipe',
+                            })
+                            const exitCode = await proc.exited
+                            const stdout = await new Response(proc.stdout).text()
+                            const stderr = await new Response(proc.stderr).text()
 
-                        const proc = Bun.spawn(args, {
-                            cwd: context.repoDir,
-                            stdout: 'pipe',
-                            stderr: 'pipe',
-                        })
-                        const exitCode = await proc.exited
-                        const stdout = await new Response(proc.stdout).text()
-                        const stderr = await new Response(proc.stderr).text()
+                            if (exitCode !== 0) {
+                                console.log('[DCO] Validation failed:', { exitCode, stdout: stdout.substring(0, 200), stderr: stderr.substring(0, 200) })
+                            }
 
-                        console.log('[DCO DEBUG] exitCode:', exitCode)
-                        console.log('[DCO DEBUG] stdout:', stdout.substring(0, 500))
-                        console.log('[DCO DEBUG] stderr:', stderr.substring(0, 500))
-
-                        return {
-                            valid: exitCode === 0,
-                            exitCode,
-                            stdout,
-                            stderr,
+                            return {
+                                valid: exitCode === 0,
+                                exitCode,
+                                stdout,
+                                stderr,
+                            }
+                        } catch (error: any) {
+                            console.error('[DCO] Validation error:', error.message)
+                            throw error
                         }
                     }
                 },
