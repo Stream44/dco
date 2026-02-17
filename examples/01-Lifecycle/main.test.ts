@@ -5,6 +5,14 @@ import { run } from 't44/standalone-rt'
 import { join, dirname } from 'path'
 import { rm, mkdir, writeFile, readFile, copyFile } from 'fs/promises'
 
+// Clear GitHub-specific env vars to isolate test repos from CI environment
+// These would otherwise cause validate.sh to use the wrong commit SHAs
+delete process.env.GITHUB_EVENT_NAME
+delete process.env.GITHUB_BASE_REF
+delete process.env.GITHUB_HEAD_SHA
+delete process.env.GITHUB_BEFORE
+delete process.env.GITHUB_SHA
+
 const WORK_DIR = join(import.meta.dir, '.~dco-lifecycle')
 const DCO_SH = join(import.meta.dir, '../../dco.sh')
 const DCO_MD_SOURCE = join(import.meta.dir, '../../DCO.md')

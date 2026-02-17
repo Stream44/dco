@@ -62,20 +62,11 @@ export async function capsule({
                             args.push('--signing-key', context.signingKeyPath)
                         }
 
-                        // Clear GitHub-specific env vars to prevent test repos from using main repo commit SHAs
-                        const env = { ...process.env }
-                        delete env.GITHUB_EVENT_NAME
-                        delete env.GITHUB_BASE_REF
-                        delete env.GITHUB_HEAD_SHA
-                        delete env.GITHUB_BEFORE
-                        delete env.GITHUB_SHA
-
                         const proc = Bun.spawn(args, {
                             cwd: repoDir,
                             stdin: autoAgree ? 'pipe' : 'inherit',
                             stdout: 'inherit',
                             stderr: 'inherit',
-                            env,
                         })
                         const exitCode = await proc.exited
 
@@ -137,20 +128,10 @@ export async function capsule({
                             if (context.headRef) args.push(context.headRef)
                             console.log('[DCO] spawn args:', args)
 
-                            // Clear GitHub-specific env vars to prevent test repos from using main repo commit SHAs
-                            const env = { ...process.env }
-                            delete env.GITHUB_EVENT_NAME
-                            delete env.GITHUB_BASE_REF
-                            delete env.GITHUB_HEAD_SHA
-                            delete env.GITHUB_BEFORE
-                            delete env.GITHUB_SHA
-                            console.log('[DCO] Cleared GitHub env vars for test isolation')
-
                             const proc = Bun.spawn(args, {
                                 cwd: context.repoDir,
                                 stdout: 'pipe',
                                 stderr: 'pipe',
-                                env,
                             })
                             const exitCode = await proc.exited
                             const stdout = await new Response(proc.stdout).text()
