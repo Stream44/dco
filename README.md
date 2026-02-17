@@ -4,7 +4,7 @@
 
 ⚠️ **Disclaimer:** Under active development. Code has not been audited, APIs and interfaces are subject to change.
 
-Developer Certificate of Origin (DCO) Tools
+Developer Certificate of Origin (DCO) Tools [![Tests](https://github.com/Stream44/dco/actions/workflows/test.yaml/badge.svg)](https://github.com/Stream44/dco/actions/workflows/test.yaml?query=branch%3Amain)
 ===
 
 DCOs are a simple way to have contributors agree to terms present in a `DCO.md` file whenever they commit to your repository.
