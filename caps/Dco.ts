@@ -98,16 +98,8 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        let packageDir: string
                         const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
-
-                        if (capsuleStruct?.moduleFilepath) {
-                            packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
-                        } else {
-                            throw new Error(`Unable to get capsuleStruct!`)
-                            // const url = new URL(import.meta.url)
-                            // packageDir = dirname(dirname(url.pathname))
-                        }
+                        const packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
 
                         const dcoScript = join(packageDir, 'dco.sh')
                         const args = ['bash', dcoScript, 'validate']
@@ -115,11 +107,11 @@ export async function capsule({
                         if (context.headRef) args.push(context.headRef)
 
                         const env = { ...process.env }
-                        delete env.GITHUB_EVENT_NAME
-                        delete env.GITHUB_BASE_REF
-                        delete env.GITHUB_HEAD_SHA
-                        delete env.GITHUB_BEFORE
-                        delete env.GITHUB_SHA
+                        // delete env.GITHUB_EVENT_NAME
+                        // delete env.GITHUB_BASE_REF
+                        // delete env.GITHUB_HEAD_SHA
+                        // delete env.GITHUB_BEFORE
+                        // delete env.GITHUB_SHA
 
                         const proc = Bun.spawn(args, {
                             cwd: context.repoDir,
