@@ -89,12 +89,18 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        const packageDir = dirname(dirname(this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath))
+                        const moduleFilepath = this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath
+                        console.log('[DCO DEBUG] moduleFilepath:', moduleFilepath)
+                        const packageDir = dirname(dirname(moduleFilepath))
+                        console.log('[DCO DEBUG] packageDir:', packageDir)
                         const dcoScript = join(packageDir, 'dco.sh')
+                        console.log('[DCO DEBUG] dcoScript:', dcoScript)
 
                         const args = ['bash', dcoScript, 'validate']
                         if (context.baseBranch) args.push(context.baseBranch)
                         if (context.headRef) args.push(context.headRef)
+                        console.log('[DCO DEBUG] args:', args)
+                        console.log('[DCO DEBUG] cwd:', context.repoDir)
 
                         const proc = Bun.spawn(args, {
                             cwd: context.repoDir,
@@ -104,6 +110,10 @@ export async function capsule({
                         const exitCode = await proc.exited
                         const stdout = await new Response(proc.stdout).text()
                         const stderr = await new Response(proc.stderr).text()
+
+                        console.log('[DCO DEBUG] exitCode:', exitCode)
+                        console.log('[DCO DEBUG] stdout:', stdout)
+                        console.log('[DCO DEBUG] stderr:', stderr)
 
                         return {
                             valid: exitCode === 0,
