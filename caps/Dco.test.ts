@@ -249,14 +249,6 @@ describe('Dco', function () {
             })
 
             const result = await dco.validate({ repoDir })
-            console.log('[TEST] Validation result:', JSON.stringify({
-                valid: result.valid,
-                exitCode: result.exitCode,
-                stdoutLength: result.stdout?.length || 0,
-                stderrLength: result.stderr?.length || 0,
-                stdoutPreview: result.stdout?.substring(0, 200),
-                stderrPreview: result.stderr?.substring(0, 200)
-            }, null, 2))
             expect(result.valid).toBe(true)
         })
 
