@@ -7,6 +7,14 @@
 
 set -e
 
+# Clear GitHub-specific env vars to isolate test repos from CI environment
+# These would otherwise cause validate.sh to use the wrong commit SHAs
+GITHUB_EVENT_NAME=
+GITHUB_BASE_REF=
+GITHUB_HEAD_SHA=
+GITHUB_BEFORE=
+GITHUB_SHA=
+
 # Colors for output
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
