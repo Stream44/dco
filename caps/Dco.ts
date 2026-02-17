@@ -89,9 +89,24 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        const moduleFilepath = this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath
-                        console.log('[DCO DEBUG] moduleFilepath:', moduleFilepath)
-                        const packageDir = dirname(dirname(moduleFilepath))
+                        console.log('[DCO DEBUG] this:', Object.keys(this))
+                        console.log('[DCO DEBUG] capsule struct:', this['#@stream44.studio/encapsulate/structs/Capsule'])
+
+                        let packageDir: string
+                        const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
+
+                        if (capsuleStruct && capsuleStruct.moduleFilepath) {
+                            const moduleFilepath = capsuleStruct.moduleFilepath
+                            console.log('[DCO DEBUG] moduleFilepath:', moduleFilepath)
+                            packageDir = dirname(dirname(moduleFilepath))
+                        } else {
+                            // Fallback: try to resolve from import.meta.url
+                            console.log('[DCO DEBUG] moduleFilepath not available, using fallback')
+                            console.log('[DCO DEBUG] import.meta.url:', import.meta.url)
+                            const currentDir = dirname(new URL(import.meta.url).pathname)
+                            packageDir = dirname(currentDir)
+                        }
+
                         console.log('[DCO DEBUG] packageDir:', packageDir)
                         const dcoScript = join(packageDir, 'dco.sh')
                         console.log('[DCO DEBUG] dcoScript:', dcoScript)
@@ -112,8 +127,8 @@ export async function capsule({
                         const stderr = await new Response(proc.stderr).text()
 
                         console.log('[DCO DEBUG] exitCode:', exitCode)
-                        console.log('[DCO DEBUG] stdout:', stdout)
-                        console.log('[DCO DEBUG] stderr:', stderr)
+                        console.log('[DCO DEBUG] stdout:', stdout.substring(0, 500))
+                        console.log('[DCO DEBUG] stderr:', stderr.substring(0, 500))
 
                         return {
                             valid: exitCode === 0,
