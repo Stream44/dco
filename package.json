@@ -24,7 +24,7 @@
     },
     "scripts": {
         "sign": "./commit.sh",
-        "test": "./test.sh",
+        "test": "bun test",
         "validate": "./validate.sh"
     },
     "dependencies": {

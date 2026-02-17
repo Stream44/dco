@@ -98,92 +98,44 @@ export async function capsule({
                         baseBranch?: string
                         headRef?: string
                     }) {
-                        try {
-                            console.log('[DCO] === VALIDATE START ===')
-                            console.log('[DCO] context.repoDir:', context.repoDir)
-                            console.log('[DCO] context.baseBranch:', context.baseBranch)
-                            console.log('[DCO] context.headRef:', context.headRef)
+                        let packageDir: string
+                        const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
 
-                            let packageDir: string
-                            const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
-                            console.log('[DCO] capsuleStruct exists:', !!capsuleStruct)
-                            console.log('[DCO] moduleFilepath exists:', !!capsuleStruct?.moduleFilepath)
+                        if (capsuleStruct?.moduleFilepath) {
+                            packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
+                        } else {
+                            const url = new URL(import.meta.url)
+                            packageDir = dirname(dirname(url.pathname))
+                        }
 
-                            if (capsuleStruct?.moduleFilepath) {
-                                packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
-                                console.log('[DCO] Using moduleFilepath:', capsuleStruct.moduleFilepath)
-                                console.log('[DCO] Resolved packageDir:', packageDir)
-                            } else {
-                                // Fallback: use import.meta.url
-                                console.log('[DCO] Using fallback - import.meta.url:', import.meta.url)
-                                const url = new URL(import.meta.url)
-                                packageDir = dirname(dirname(url.pathname))
-                                console.log('[DCO] Fallback packageDir:', packageDir)
-                            }
+                        const dcoScript = join(packageDir, 'dco.sh')
+                        const args = ['bash', dcoScript, 'validate']
+                        if (context.baseBranch) args.push(context.baseBranch)
+                        if (context.headRef) args.push(context.headRef)
 
-                            const dcoScript = join(packageDir, 'dco.sh')
-                            console.log('[DCO] dcoScript path:', dcoScript)
+                        // Create clean env without GitHub vars for test isolation
+                        const env = { ...process.env }
+                        delete env.GITHUB_EVENT_NAME
+                        delete env.GITHUB_BASE_REF
+                        delete env.GITHUB_HEAD_SHA
+                        delete env.GITHUB_BEFORE
+                        delete env.GITHUB_SHA
 
-                            // Check if script exists
-                            try {
-                                await access(dcoScript, constants.F_OK)
-                                console.log('[DCO] dco.sh exists: YES')
-                            } catch {
-                                console.log('[DCO] dco.sh exists: NO - THIS IS THE PROBLEM!')
-                            }
+                        const proc = Bun.spawn(args, {
+                            cwd: context.repoDir,
+                            stdout: 'pipe',
+                            stderr: 'pipe',
+                            env,
+                        })
+                        const exitCode = await proc.exited
+                        const stdout = await new Response(proc.stdout).text()
+                        const stderr = await new Response(proc.stderr).text()
 
-                            const args = ['bash', dcoScript, 'validate']
-                            if (context.baseBranch) args.push(context.baseBranch)
-                            if (context.headRef) args.push(context.headRef)
-                            console.log('[DCO] spawn args:', args)
-
-                            // Create clean env without GitHub vars for test isolation
-                            const env = { ...process.env }
-                            delete env.GITHUB_EVENT_NAME
-                            delete env.GITHUB_BASE_REF
-                            delete env.GITHUB_HEAD_SHA
-                            delete env.GITHUB_BEFORE
-                            delete env.GITHUB_SHA
-
-                            const proc = Bun.spawn(args, {
-                                cwd: context.repoDir,
-                                stdout: 'pipe',
-                                stderr: 'pipe',
-                                env,
-                            })
-                            const exitCode = await proc.exited
-                            const stdout = await new Response(proc.stdout).text()
-                            const stderr = await new Response(proc.stderr).text()
-
-                            console.log('[DCO] exitCode:', exitCode)
-                            console.log('[DCO] stdout length:', stdout.length)
-                            console.log('[DCO] stderr length:', stderr.length)
-
-                            if (exitCode !== 0) {
-                                console.log('[DCO] ========== VALIDATION FAILED ==========')
-                                console.log('[DCO] Exit code:', exitCode)
-                                console.log('[DCO] Working directory:', context.repoDir)
-                                console.log('[DCO] Script path:', dcoScript)
-                                console.log('[DCO] Full stdout:')
-                                console.log(stdout)
-                                console.log('[DCO] Full stderr:')
-                                console.log(stderr)
-                                console.log('[DCO] ==========================================')
-                            } else {
-                                console.log('[DCO] Validation PASSED')
-                            }
-                            console.log('[DCO] === VALIDATE END ===')
-
-                            return {
-                                valid: exitCode === 0,
-                                exitCode,
-                                stdout,
-                                stderr,
-                            }
-                        } catch (error: any) {
-                            console.error('[DCO] EXCEPTION in validate:', error.message)
-                            console.error('[DCO] Stack:', error.stack)
-                            throw error
+                        return {
+                            valid: exitCode === 0,
+                            exitCode,
+                            stdout,
+                            stderr,
                         }
                     }
                 },
