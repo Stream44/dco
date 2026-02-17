@@ -3,14 +3,12 @@
 import * as bunTest from 'bun:test'
 import { run } from 't44/standalone-rt'
 import { join } from 'path'
-import { rm, mkdir, writeFile, readFile, copyFile, access } from 'fs/promises'
-import { constants, existsSync } from 'fs'
+import { mkdir, writeFile, readFile, copyFile } from 'fs/promises'
+import { existsSync } from 'fs'
 import { $ } from 'bun'
 
-const WORK_DIR = join(import.meta.dir, '.~dco')
-
 const {
-    test: { describe, it, expect },
+    test: { describe, it, expect, workbenchDir },
     dco,
 } = await run(async ({ encapsulate, CapsulePropertyTypes, makeImportStack }: any) => {
     const spine = await encapsulate({
@@ -45,8 +43,6 @@ const {
     importMeta: import.meta
 })
 
-await rm(WORK_DIR, { recursive: true, force: true })
-await mkdir(WORK_DIR, { recursive: true })
 
 // ════════════════════════════════════════════════════════════════════════
 //
@@ -56,7 +52,7 @@ await mkdir(WORK_DIR, { recursive: true })
 
 // Helper: create a fresh git repo with DCO.md
 async function createTestRepo(name: string): Promise<string> {
-    const repoDir = join(WORK_DIR, name)
+    const repoDir = join(workbenchDir, name)
     await mkdir(repoDir, { recursive: true })
     await $`git init`.cwd(repoDir).quiet()
     await $`git config user.name "Test User"`.cwd(repoDir).quiet()
@@ -85,7 +81,7 @@ describe('Dco', function () {
         })
 
         it('should return false when DCO.md does not exist', async function () {
-            const repoDir = join(WORK_DIR, 'has-dco-false')
+            const repoDir = join(workbenchDir, 'has-dco-false')
             await mkdir(repoDir, { recursive: true })
             const result = await dco.hasDco({ repoDir })
             expect(result).toBe(false)
@@ -113,7 +109,7 @@ describe('Dco', function () {
         })
 
         it('should throw when DCO.md is missing', async function () {
-            const repoDir = join(WORK_DIR, 'sign-no-dco')
+            const repoDir = join(workbenchDir, 'sign-no-dco')
             await mkdir(repoDir, { recursive: true })
 
             let threw = false
@@ -210,7 +206,7 @@ describe('Dco', function () {
 
         it('should copy .dco-signatures to projectSourceDir', async function () {
             const repoDir = await createTestRepo('sign-commit-copy')
-            const projectDir = join(WORK_DIR, 'sign-commit-copy-source')
+            const projectDir = join(workbenchDir, 'sign-commit-copy-source')
             await mkdir(projectDir, { recursive: true })
 
             await writeFile(join(repoDir, 'README.md'), '# Test\n')
