@@ -90,24 +90,43 @@ export async function capsule({
                         headRef?: string
                     }) {
                         try {
+                            console.log('[DCO] === VALIDATE START ===')
+                            console.log('[DCO] context.repoDir:', context.repoDir)
+                            console.log('[DCO] context.baseBranch:', context.baseBranch)
+                            console.log('[DCO] context.headRef:', context.headRef)
+
                             let packageDir: string
                             const capsuleStruct = this['#@stream44.studio/encapsulate/structs/Capsule']
+                            console.log('[DCO] capsuleStruct exists:', !!capsuleStruct)
+                            console.log('[DCO] moduleFilepath exists:', !!capsuleStruct?.moduleFilepath)
 
                             if (capsuleStruct?.moduleFilepath) {
                                 packageDir = dirname(dirname(capsuleStruct.moduleFilepath))
-                                console.log('[DCO] Using moduleFilepath:', packageDir)
+                                console.log('[DCO] Using moduleFilepath:', capsuleStruct.moduleFilepath)
+                                console.log('[DCO] Resolved packageDir:', packageDir)
                             } else {
                                 // Fallback: use import.meta.url
+                                console.log('[DCO] Using fallback - import.meta.url:', import.meta.url)
                                 const url = new URL(import.meta.url)
                                 packageDir = dirname(dirname(url.pathname))
-                                console.log('[DCO] Using import.meta fallback:', packageDir)
+                                console.log('[DCO] Fallback packageDir:', packageDir)
                             }
 
                             const dcoScript = join(packageDir, 'dco.sh')
+                            console.log('[DCO] dcoScript path:', dcoScript)
+
+                            // Check if script exists
+                            try {
+                                await access(dcoScript, constants.F_OK)
+                                console.log('[DCO] dco.sh exists: YES')
+                            } catch {
+                                console.log('[DCO] dco.sh exists: NO - THIS IS THE PROBLEM!')
+                            }
 
                             const args = ['bash', dcoScript, 'validate']
                             if (context.baseBranch) args.push(context.baseBranch)
                             if (context.headRef) args.push(context.headRef)
+                            console.log('[DCO] spawn args:', args)
 
                             const proc = Bun.spawn(args, {
                                 cwd: context.repoDir,
@@ -118,9 +137,14 @@ export async function capsule({
                             const stdout = await new Response(proc.stdout).text()
                             const stderr = await new Response(proc.stderr).text()
 
+                            console.log('[DCO] exitCode:', exitCode)
+                            console.log('[DCO] stdout length:', stdout.length)
+                            console.log('[DCO] stderr length:', stderr.length)
                             if (exitCode !== 0) {
-                                console.log('[DCO] Validation failed:', { exitCode, stdout: stdout.substring(0, 200), stderr: stderr.substring(0, 200) })
+                                console.log('[DCO] FAILED - stdout preview:', stdout.substring(0, 300))
+                                console.log('[DCO] FAILED - stderr preview:', stderr.substring(0, 300))
                             }
+                            console.log('[DCO] === VALIDATE END ===')
 
                             return {
                                 valid: exitCode === 0,
@@ -129,7 +153,8 @@ export async function capsule({
                                 stderr,
                             }
                         } catch (error: any) {
-                            console.error('[DCO] Validation error:', error.message)
+                            console.error('[DCO] EXCEPTION in validate:', error.message)
+                            console.error('[DCO] Stack:', error.stack)
                             throw error
                         }
                     }
