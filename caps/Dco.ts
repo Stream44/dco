@@ -39,6 +39,7 @@ export async function capsule({
                     value: async function (this: any, context: {
                         repoDir: string
                         autoAgree?: boolean
+                        nonInteractive?: boolean
                     }): Promise<{ keyPath: string }> {
                         const chalk = (await import('chalk')).default
                         const homeDir = process.env.HOME_DIR || process.env.HOME || require('os').homedir()
@@ -104,7 +105,15 @@ export async function capsule({
                             process.exit(1)
                         }
 
-                        // 4. If --yes-signoff (autoAgree), auto-create a key
+                        // 4. Non-interactive mode: fail with a clear error if no auto-match was found
+                        if (context.nonInteractive) {
+                            console.error('\x1b[31m✗ This repository requires a DCO signing key but none has been configured.\x1b[0m')
+                            console.error('\x1b[31m  Run the following once interactively to sign the DCO and record your key:\x1b[0m')
+                            console.error('\x1b[36m    bunx @stream44.studio/dco commit\x1b[0m')
+                            process.exit(1)
+                        }
+
+                        // 5. If --yes-signoff (autoAgree), auto-create a key
                         if (context.autoAgree) {
                             if (keyFiles.length > 0) {
                                 // Use first available key
@@ -121,7 +130,7 @@ export async function capsule({
                             return { keyPath }
                         }
 
-                        // 5. Interactive: present list of keys
+                        // 6. Interactive: present list of keys
                         const inquirer = await import('inquirer')
 
                         const choices: Array<{ name: string; value: any }> = []
@@ -200,15 +209,8 @@ export async function capsule({
                         const gordianPath = join(repoDir, GORDIAN_FILE)
                         const hasGordian = existsSync(gordianPath)
                         if (hasGordian && !signingKeyPath) {
-                            if (context.nonInteractive) {
-                                console.error('\x1b[31m✗ This repository requires a DCO signing key but none has been configured.\x1b[0m')
-                                console.error('\x1b[31m  Run the following once interactively to sign the DCO and record your key:\x1b[0m')
-                                console.error('\x1b[36m    bunx @stream44.studio/dco commit\x1b[0m')
-                                process.exit(1)
-                            } else {
-                                const result = await this.selectKey({ repoDir, autoAgree })
-                                signingKeyPath = result.keyPath
-                            }
+                            const result = await this.selectKey({ repoDir, autoAgree, nonInteractive: context.nonInteractive })
+                            signingKeyPath = result.keyPath
                         }
 
                         // Resolve commit.sh from this package
