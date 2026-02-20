@@ -154,4 +154,53 @@ program
         })
     })
 
+program
+    .command('install-hook')
+    .description('Install the DCO prepare-commit-msg git hook in the current repository')
+    .action(async () => {
+        const { writeFile, chmod, mkdir } = await import('fs/promises')
+        const { existsSync } = await import('fs')
+        const { join } = await import('path')
+
+        const repoDir = resolve(process.cwd())
+        const hooksDir = join(repoDir, '.git', 'hooks')
+        const hookPath = join(hooksDir, 'prepare-commit-msg')
+
+        if (!existsSync(join(repoDir, '.git'))) {
+            console.error(chalk.red('Not a git repository'))
+            process.exit(1)
+        }
+
+        const hookContent = '#!/usr/bin/env bash\nbunx @stream44.studio/dco commit "$@"\n'
+
+        if (existsSync(hookPath)) {
+            const { readFile } = await import('fs/promises')
+            const existing = await readFile(hookPath, 'utf-8')
+            if (existing === hookContent) {
+                console.log(chalk.green(`✓ DCO commit hook already installed at ${hookPath}`))
+                return
+            }
+            console.warn(chalk.yellow(`⚠ WARNING: A different hook already exists at ${hookPath}`))
+            console.warn(chalk.yellow('  The DCO hook was NOT installed to avoid overwriting your existing hook.'))
+            console.warn('')
+            console.warn(chalk.white('  To integrate DCO signing, choose one of:'))
+            console.warn('')
+            console.warn(chalk.white('  A) Add to your existing hook:'))
+            console.warn(chalk.cyan('       bunx @stream44.studio/dco commit "$@"'))
+            console.warn('')
+            console.warn(chalk.white('  B) Sign once manually (records your DCO agreement):'))
+            console.warn(chalk.cyan('       bunx @stream44.studio/dco commit'))
+            console.warn(chalk.white('     Then ensure your commits use --signoff and optionally --gpg-sign:'))
+            console.warn(chalk.cyan('       git commit --signoff --gpg-sign -m "your message"'))
+            console.warn('')
+            return
+        }
+
+        await mkdir(hooksDir, { recursive: true })
+        await writeFile(hookPath, hookContent, 'utf-8')
+        await chmod(hookPath, 0o755)
+
+        console.log(chalk.green(`✓ DCO commit hook installed at ${hookPath}`))
+    })
+
 program.parse(process.argv)

@@ -1,6 +1,6 @@
 {
     "name": "@stream44.studio/dco",
-    "version": "0.3.0-rc.16",
+    "version": "0.3.0-rc.17",
     "description": "Developer Certificate of Origin (DCO) tools for signing & verifying.",
     "private": false,
     "keywords": [

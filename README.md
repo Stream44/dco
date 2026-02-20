@@ -32,6 +32,9 @@ A great template for open source projects is: [https://developercertificate.org]
 bunx @stream44.studio/dco commit [--signing-key ~/.ssh/key] <git arguments>
 ```
 
+Also see [Git Commit Hook](#git-commit-hook) below.
+
+
 ### Verifying
 
 ```
@@ -80,11 +83,46 @@ A project can choose to require signing keys or not by setting `enforceSignature
 Ensures all commits were signed off my signatures recorded in `.dco-signatures`.
 
 
+### Git Commit Hook
+
+Create `.git/hooks/prepare-commit-msg` in your repository:
+
+```bash
+#!/usr/bin/env bash
+bunx @stream44.studio/dco commit "$@"
+```
+
+Make it executable:
+
+```bash
+chmod +x .git/hooks/prepare-commit-msg
+```
+
+The hook runs before every `git commit`, signs the DCO on first use, and automatically appends `--signoff` to the commit. The original commit message and arguments are passed through unchanged.
+
+To install the hook automatically when contributors run `bun install`, add a `postinstall` script to your `package.json`:
+
+```json
+"scripts": {
+    "postinstall": "bunx @stream44.studio/dco install-hook"
+}
+```
+
+Or if you prefer a simple inline shell command:
+
+```json
+"scripts": {
+    "postinstall": "printf '#!/usr/bin/env bash\\nbunx @stream44.studio/dco commit \"$@\"\\n' > .git/hooks/prepare-commit-msg && chmod +x .git/hooks/prepare-commit-msg"
+}
+```
+
+This ensures every contributor who runs `bun install` gets the hook installed automatically.
+
+
 ### Github Action
 
 The github action enforces DCO sign-offs by ensuring all commits have a `Signed-off-by: Jane Doe <jane@example.com>`
 line in the respective commit messages and the same is found in `.dco-signatures`.
-
 
 Add to `.github/workflows/dco.yaml` in your repository:
 
