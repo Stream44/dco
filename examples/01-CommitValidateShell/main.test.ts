@@ -2,7 +2,7 @@
 
 import * as bunTest from 'bun:test'
 import { run } from 't44/standalone-rt'
-import { join, dirname } from 'path'
+import { join } from 'path'
 import { rm, mkdir, writeFile, readFile, copyFile } from 'fs/promises'
 
 // Clear GitHub-specific env vars to isolate test repos from CI environment
@@ -13,12 +13,11 @@ delete process.env.GITHUB_HEAD_SHA
 delete process.env.GITHUB_BEFORE
 delete process.env.GITHUB_SHA
 
-const WORK_DIR = join(import.meta.dir, '.~dco-lifecycle')
 const DCO_SH = join(import.meta.dir, '../../dco.sh')
 const DCO_MD_SOURCE = join(import.meta.dir, '../../DCO.md')
 
 const {
-    test: { describe, it, expect },
+    test: { describe, it, expect, workbenchDir },
 } = await run(async ({ encapsulate, CapsulePropertyTypes, makeImportStack }: any) => {
     const spine = await encapsulate({
         '#@stream44.studio/encapsulate/spine-contracts/CapsuleSpineContract.v0': {
@@ -39,7 +38,7 @@ const {
     }, {
         importMeta: import.meta,
         importStack: makeImportStack(),
-        capsuleName: '@stream44.studio/dco/examples/01-Lifecycle'
+        capsuleName: '@stream44.studio/dco/examples/01-CommitValidateShell'
     })
     return { spine }
 }, async ({ spine, apis }: any) => {
@@ -74,8 +73,8 @@ async function spawn(args: string[], opts: { cwd: string; env?: Record<string, s
 
 describe('DCO CLI Lifecycle', function () {
 
-    const repoDir = join(WORK_DIR, 'repo')
-    const keysDir = join(WORK_DIR, 'keys')
+    const repoDir = join(workbenchDir, 'repo')
+    const keysDir = join(workbenchDir, 'keys')
 
     let keyA: string
     let keyB: string
@@ -85,7 +84,6 @@ describe('DCO CLI Lifecycle', function () {
     // ──────────────────────────────────────────────────────────────
 
     it('setup: prepare work directory and SSH keys', async function () {
-        await rm(WORK_DIR, { recursive: true, force: true })
         await mkdir(repoDir, { recursive: true })
         await mkdir(keysDir, { recursive: true })
 

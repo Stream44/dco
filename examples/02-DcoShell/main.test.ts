@@ -4,10 +4,10 @@ import * as bunTest from 'bun:test'
 import { run } from 't44/standalone-rt'
 import { join } from 'path'
 
-const TEST_SH = join(import.meta.dir, '../../test.sh')
+const TEST_SH = join(import.meta.dir, 'test.sh')
 
 const {
-    test: { describe, it, expect },
+    test: { describe, it, expect, workbenchDir },
 } = await run(async ({ encapsulate, CapsulePropertyTypes, makeImportStack }: any) => {
     const spine = await encapsulate({
         '#@stream44.studio/encapsulate/spine-contracts/CapsuleSpineContract.v0': {
@@ -28,7 +28,7 @@ const {
     }, {
         importMeta: import.meta,
         importStack: makeImportStack(),
-        capsuleName: '@stream44.studio/dco/examples/02-ShellTest'
+        capsuleName: '@stream44.studio/dco/examples/02-DcoShell'
     })
     return { spine }
 }, async ({ spine, apis }: any) => {

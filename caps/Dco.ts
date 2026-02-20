@@ -1,7 +1,7 @@
 
-import { join, dirname } from 'path'
-import { readFile, writeFile, access, mkdir, copyFile } from 'fs/promises'
-import { constants } from 'fs'
+import { join, dirname, basename } from 'path'
+import { readFile, writeFile, access, mkdir, copyFile, readdir } from 'fs/promises'
+import { constants, existsSync } from 'fs'
 import { $ } from 'bun'
 
 
@@ -10,6 +10,7 @@ import { $ } from 'bun'
 const DCO_FILE = 'DCO.md'
 const SIGNATURES_FILE = '.dco-signatures'
 const MARKER_FILE = '.git/.dco-agreed'
+const GORDIAN_FILE = '.o/GordianOpenIntegrity.yaml'
 
 
 // ── Capsule ──────────────────────────────────────────────────────────
@@ -30,6 +31,148 @@ export async function capsule({
             '#': {
 
                 // ══════════════════════════════════════════════════════
+                // selectKey — List and select an SSH ed25519 signing key
+                // ══════════════════════════════════════════════════════
+
+                selectKey: {
+                    type: CapsulePropertyTypes.Function,
+                    value: async function (this: any, context: {
+                        repoDir: string
+                        autoAgree?: boolean
+                    }): Promise<{ keyPath: string }> {
+                        const chalk = (await import('chalk')).default
+                        const homeDir = process.env.HOME_DIR || process.env.HOME || require('os').homedir()
+                        const sshDir = join(homeDir, '.ssh')
+
+                        // 1. Check .dco-signatures for existing fingerprint for this user
+                        const currentEmail = (await $`git config user.email`.cwd(context.repoDir).text()).trim()
+                        const sigs = await this.getSignatures({ repoDir: context.repoDir })
+                        let existingFingerprint: string | undefined
+                        if (sigs.found) {
+                            const userSig = sigs.signatures.find((s: any) => s.email === currentEmail && s.fingerprint)
+                            if (userSig?.fingerprint) {
+                                existingFingerprint = userSig.fingerprint
+                            }
+                        }
+
+                        // 2. List ed25519 private keys from ~/.ssh
+                        let keyFiles: string[] = []
+                        try {
+                            const files = await readdir(sshDir)
+                            for (const f of files) {
+                                // Skip .pub files, known_hosts, config, authorized_keys, agent socket
+                                if (f.endsWith('.pub') || f === 'known_hosts' || f === 'config' ||
+                                    f === 'authorized_keys' || f === 'agent' || f.startsWith('.')) continue
+                                const fullPath = join(sshDir, f)
+                                try {
+                                    const content = await readFile(fullPath, 'utf-8')
+                                    if (content.includes('OPENSSH PRIVATE KEY')) {
+                                        // Check if it's ed25519 by reading the .pub file or checking key type
+                                        const pubPath = fullPath + '.pub'
+                                        try {
+                                            const pubContent = await readFile(pubPath, 'utf-8')
+                                            if (pubContent.startsWith('ssh-ed25519')) {
+                                                keyFiles.push(fullPath)
+                                            }
+                                        } catch {
+                                            // No .pub file — try ssh-keygen to check type
+                                            const result = await $`ssh-keygen -lf ${fullPath}`.quiet().nothrow()
+                                            if (result.exitCode === 0 && result.text().includes('ED25519')) {
+                                                keyFiles.push(fullPath)
+                                            }
+                                        }
+                                    }
+                                } catch { /* skip non-readable files */ }
+                            }
+                        } catch { /* ~/.ssh doesn't exist */ }
+
+                        // 3. If existing fingerprint found, try to auto-match
+                        if (existingFingerprint) {
+                            for (const keyPath of keyFiles) {
+                                const fpResult = await $`ssh-keygen -lf ${keyPath}`.quiet().nothrow()
+                                if (fpResult.exitCode === 0) {
+                                    const fp = fpResult.text().trim().split(/\s+/)[1]
+                                    if (fp === existingFingerprint) {
+                                        console.log(chalk.green(`✓ Auto-selected signing key matching existing signature: ${basename(keyPath)}`))
+                                        return { keyPath }
+                                    }
+                                }
+                            }
+                            // Fingerprint exists but no key matches
+                            console.error(chalk.red(`\nNone of the SSH keys in ${sshDir} match the fingerprint of the original signature (${existingFingerprint})`))
+                            console.error(chalk.red('ABORT'))
+                            process.exit(1)
+                        }
+
+                        // 4. If --yes-signoff (autoAgree), auto-create a key
+                        if (context.autoAgree) {
+                            if (keyFiles.length > 0) {
+                                // Use first available key
+                                console.log(chalk.green(`✓ Auto-selected signing key: ${basename(keyFiles[0])}`))
+                                return { keyPath: keyFiles[0] }
+                            }
+                            // Create a new key
+                            const keyName = 'dco_signing_ed25519'
+                            const keyPath = join(sshDir, keyName)
+                            await mkdir(sshDir, { recursive: true })
+                            const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'dco_signing', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                            await keygen.exited
+                            console.log(chalk.green(`✓ Created new signing key: ${keyName}`))
+                            return { keyPath }
+                        }
+
+                        // 5. Interactive: present list of keys
+                        const inquirer = await import('inquirer')
+
+                        const choices: Array<{ name: string; value: any }> = []
+                        for (const keyPath of keyFiles) {
+                            const fpResult = await $`ssh-keygen -lf ${keyPath}`.quiet().nothrow()
+                            const fp = fpResult.exitCode === 0 ? fpResult.text().trim().split(/\s+/)[1] : ''
+                            choices.push({
+                                name: `${basename(keyPath)}  ${chalk.gray(fp)}`,
+                                value: { type: 'existing', keyPath }
+                            })
+                        }
+                        choices.push({
+                            name: chalk.yellow('+ Create a new ed25519 signing key'),
+                            value: { type: 'create' }
+                        })
+
+                        const selected = await inquirer.default.prompt([{
+                            type: 'list',
+                            name: 'value',
+                            message: 'Select an SSH signing key for Developer Certificate of Origin (DCO):',
+                            choices,
+                            pageSize: 15
+                        }])
+
+                        if (selected.value.type === 'existing') {
+                            return { keyPath: selected.value.keyPath }
+                        }
+
+                        // Create new key
+                        const { value: keyName } = await inquirer.default.prompt([{
+                            type: 'input',
+                            name: 'value',
+                            message: 'Enter a name for the new signing key:',
+                            default: 'dco_signing_ed25519',
+                            validate: (input: string) => {
+                                if (!input || input.trim().length === 0) return 'Key name cannot be empty'
+                                if (!/^[a-zA-Z0-9_-]+$/.test(input)) return 'Key name can only contain letters, numbers, underscores, and hyphens'
+                                return true
+                            }
+                        }])
+
+                        const newKeyPath = join(sshDir, keyName)
+                        await mkdir(sshDir, { recursive: true })
+                        const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', newKeyPath, '-N', '', '-C', 'dco_signing', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                        await keygen.exited
+                        console.log(chalk.green(`✓ Created new signing key: ${keyName}`))
+                        return { keyPath: newKeyPath }
+                    }
+                },
+
+                // ══════════════════════════════════════════════════════
                 // sign — Run the DCO signing process
                 // ══════════════════════════════════════════════════════
 
@@ -39,6 +182,7 @@ export async function capsule({
                         repoDir: string
                         autoAgree?: boolean
                         signingKeyPath?: string
+                        gitArgs?: string[]
                     }) {
                         const { repoDir, autoAgree } = context
 
@@ -50,6 +194,15 @@ export async function capsule({
                             throw new Error(`DCO.md not found in ${repoDir}`)
                         }
 
+                        // Check for .o/GordianOpenIntegrity.yaml — if present, signing key is required
+                        let signingKeyPath = context.signingKeyPath
+                        const gordianPath = join(repoDir, GORDIAN_FILE)
+                        const hasGordian = existsSync(gordianPath)
+                        if (hasGordian && !signingKeyPath) {
+                            const result = await this.selectKey({ repoDir, autoAgree })
+                            signingKeyPath = result.keyPath
+                        }
+
                         // Resolve commit.sh from this package
                         const packageDir = dirname(dirname(this['#@stream44.studio/encapsulate/structs/Capsule'].moduleFilepath))
                         const dcoScript = join(packageDir, 'dco.sh')
@@ -58,8 +211,11 @@ export async function capsule({
                         if (autoAgree) {
                             args.push('--yes-signoff')
                         }
-                        if (context.signingKeyPath) {
-                            args.push('--signing-key', context.signingKeyPath)
+                        if (signingKeyPath) {
+                            args.push('--signing-key', signingKeyPath)
+                        }
+                        if (context.gitArgs && context.gitArgs.length > 0) {
+                            args.push(...context.gitArgs)
                         }
 
                         // Create clean env without GitHub vars for test isolation
@@ -73,17 +229,49 @@ export async function capsule({
                         const proc = Bun.spawn(args, {
                             cwd: repoDir,
                             stdin: autoAgree ? 'pipe' : 'inherit',
-                            stdout: 'inherit',
-                            stderr: 'inherit',
+                            stdout: 'pipe',
+                            stderr: 'pipe',
                             env,
                         })
-                        const exitCode = await proc.exited
 
-                        if (exitCode !== 0) {
+                        const chunks: Uint8Array[] = []
+                        const errChunks: Uint8Array[] = []
+
+                        const stdoutReader = proc.stdout.getReader()
+                        const stderrReader = proc.stderr.getReader()
+
+                        await Promise.all([
+                            (async () => {
+                                while (true) {
+                                    const { done, value } = await stdoutReader.read()
+                                    if (done) break
+                                    chunks.push(value)
+                                    process.stdout.write(value)
+                                }
+                            })(),
+                            (async () => {
+                                while (true) {
+                                    const { done, value } = await stderrReader.read()
+                                    if (done) break
+                                    errChunks.push(value)
+                                    process.stderr.write(value)
+                                }
+                            })(),
+                        ])
+
+                        const exitCode = await proc.exited
+                        const output = Buffer.concat(chunks).toString()
+                        const errOutput = Buffer.concat(errChunks).toString()
+                        const combined = output + errOutput
+
+                        // git commit exits 1 when there is nothing to commit — treat as success
+                        const nothingToCommit = combined.includes('nothing to commit') || combined.includes('working tree clean')
+                        if (exitCode !== 0 && !nothingToCommit) {
                             throw new Error(`DCO signing failed with exit code ${exitCode}`)
                         }
 
-                        return { signed: true }
+                        const alreadySigned = output.includes('DCO Already Signed')
+                        return { signed: true, alreadySigned }
                     }
                 },
 
@@ -199,6 +387,7 @@ export async function capsule({
                                 signedDate: string
                                 agreementCommit: string
                                 agreementChangeDate: string
+                                fingerprint: string
                             }> = []
 
                             for (const line of content.split('\n')) {
@@ -210,10 +399,11 @@ export async function capsule({
                                 if (line.startsWith('Each ')) continue
                                 if (line.startsWith('Format:')) continue
 
-                                // Parse: name <email> | signed: <date> | agreement: <commit> (<date>)
+                                // Parse: name <email> | signed: <date> | agreement: <commit> (<date>) [| signature: <fingerprint>]
                                 const nameMatch = line.match(/^(.+?)\s*<(.+?)>/)
                                 const signedMatch = line.match(/\|\s*signed:\s*(.+?)\s*\|/)
                                 const agreementMatch = line.match(/\|\s*agreement:\s*([a-f0-9]+)\s*\((.+?)\)/)
+                                const fingerprintMatch = line.match(/\|\s*signature:\s*(\S+)/)
 
                                 if (nameMatch) {
                                     signatures.push({
@@ -222,6 +412,7 @@ export async function capsule({
                                         signedDate: signedMatch?.[1]?.trim() || '',
                                         agreementCommit: agreementMatch?.[1]?.trim() || '',
                                         agreementChangeDate: agreementMatch?.[2]?.trim() || '',
+                                        fingerprint: fingerprintMatch?.[1]?.trim() || '',
                                     })
                                 }
                             }

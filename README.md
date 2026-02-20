@@ -38,7 +38,7 @@ bunx @stream44.studio/dco commit [--signing-key ~/.ssh/key] <git arguments>
 bunx @stream44.studio/dco validate
 ```
 
-Also see [Github Actions](#github-action) below.
+Also see [Github Action](#github-action) below.
 
 
 Tools
@@ -80,7 +80,7 @@ A project can choose to require signing keys or not by setting `enforceSignature
 Ensures all commits were signed off my signatures recorded in `.dco-signatures`.
 
 
-### Github Actions
+### Github Action
 
 The github action enforces DCO sign-offs by ensuring all commits have a `Signed-off-by: Jane Doe <jane@example.com>`
 line in the respective commit messages and the same is found in `.dco-signatures`.
@@ -121,4 +121,4 @@ Repository DID: `did:repo:8b9bc7c9912c017867cec575f90811e3671e0212`
   </tr>
 </table>
 
-(c) 2026 [Christoph.diy](https://christoph.diy) • Code: `Apache 2.0` • Text: `CC-BY` • Created with [Stream44.Studio](https://Stream44.Studio)
+(c) 2026 [Christoph.diy](https://christoph.diy) • Code: `MIT` • Text: `CC-BY` • Created with [Stream44.Studio](https://Stream44.Studio)

@@ -40,8 +40,8 @@ cleanup() {
         echo -e "${BLUE}Cleaning up test directory...${NC}"
         rm -rf "$TEST_PATH"
     fi
-    # Clean up signed repo and keys dirs
-    rm -rf "$TEST_DIR/$TIMESTAMP-signed" "$TEST_DIR/$TIMESTAMP-keys" 2>/dev/null || true
+    # Clean up signed repo, keys, msg, and gordian dirs
+    rm -rf "$TEST_DIR/$TIMESTAMP-signed" "$TEST_DIR/$TIMESTAMP-keys" "$TEST_DIR/$TIMESTAMP-msg" "$TEST_DIR/$TIMESTAMP-gordian" 2>/dev/null || true
     # Also remove parent test directory if empty
     if [[ -d "$TEST_DIR" ]] && [[ -z "$(ls -A "$TEST_DIR" 2>/dev/null)" ]]; then
         rm -rf "$TEST_DIR"
@@ -57,6 +57,7 @@ mkdir -p "$TEST_PATH"
 
 # Get the directory where this test script is located
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Copy files to test directory (excluding .dco-signatures and test.sh)
 echo -e "${BLUE}Copying files to test directory...${NC}"
@@ -71,6 +72,14 @@ for file in "$SCRIPT_DIR"/*; do
         echo -e "  Copied: $filename"
     fi
 done
+
+# Copy commit.sh and DCO.md from package root
+cp "$PACKAGE_DIR/commit.sh" "$TEST_PATH/"
+echo -e "  Copied: commit.sh (from package root)"
+cp "$PACKAGE_DIR/validate.sh" "$TEST_PATH/"
+echo -e "  Copied: validate.sh (from package root)"
+cp "$PACKAGE_DIR/DCO.md" "$TEST_PATH/"
+echo -e "  Copied: DCO.md (from package root)"
 
 # Copy .github directory if it exists
 if [[ -d "$SCRIPT_DIR/.github" ]]; then
@@ -346,6 +355,9 @@ for file in "$SCRIPT_DIR"/*; do
         cp "$file" "$SIGNED_REPO/"
     fi
 done
+cp "$PACKAGE_DIR/commit.sh" "$SIGNED_REPO/"
+cp "$PACKAGE_DIR/validate.sh" "$SIGNED_REPO/"
+cp "$PACKAGE_DIR/DCO.md" "$SIGNED_REPO/"
 
 cd "$SIGNED_REPO"
 git init -q
@@ -441,6 +453,59 @@ if ! echo "$VALIDATE_OUTPUT" | grep -q "Signature fingerprints: enforced"; then
     exit 1
 fi
 echo -e "${GREEN}✓ --enforce-signature-fingerprints passes on SSH-signed repo with matching fingerprints${NC}"
+echo
+
+# Test commit.sh with -m message argument
+echo -e "${BOLD}${YELLOW}Testing commit.sh with -m message argument...${NC}"
+MSG_REPO="$TEST_DIR/$TIMESTAMP-msg"
+mkdir -p "$MSG_REPO"
+cp "$PACKAGE_DIR/commit.sh" "$MSG_REPO/"
+cp "$PACKAGE_DIR/DCO.md" "$MSG_REPO/"
+cd "$MSG_REPO"
+git init -q
+git config user.name "Test User"
+git config user.email "test@example.com"
+git checkout -b main 2>/dev/null || git branch -M main 2>/dev/null || true
+echo "# Msg Test" > README.md
+git add .
+COMMIT_OUTPUT=$(./commit.sh --yes-signoff -m "feat: message test commit" 2>&1)
+echo "$COMMIT_OUTPUT"
+if ! git log --oneline | grep -q "feat: message test commit"; then
+    echo -e "${RED}✗ FAIL: commit.sh -m should produce a commit with the given message${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ commit.sh -m correctly commits with the given message${NC}"
+echo
+
+# Test commit.sh with .o/GordianOpenIntegrity.yaml requires --signing-key
+echo -e "${BOLD}${YELLOW}Testing commit.sh with GordianOpenIntegrity.yaml and --signing-key...${NC}"
+GORDIAN_REPO="$TEST_DIR/$TIMESTAMP-gordian"
+mkdir -p "$GORDIAN_REPO"
+cp "$PACKAGE_DIR/commit.sh" "$GORDIAN_REPO/"
+cp "$PACKAGE_DIR/DCO.md" "$GORDIAN_REPO/"
+mkdir -p "$GORDIAN_REPO/.o"
+echo "# Gordian Open Integrity" > "$GORDIAN_REPO/.o/GordianOpenIntegrity.yaml"
+cd "$GORDIAN_REPO"
+git init -q
+git config user.name "Test User"
+git config user.email "test@example.com"
+git checkout -b main 2>/dev/null || git branch -M main 2>/dev/null || true
+echo "# Gordian Test" > README.md
+git add .
+
+# Use the signing key from the SSH test section
+GORDIAN_OUTPUT=$(./commit.sh --yes-signoff --signing-key "$SIGNING_KEY" -m "feat: gordian commit" 2>&1)
+echo "$GORDIAN_OUTPUT"
+if ! git log --oneline | grep -q "feat: gordian commit"; then
+    echo -e "${RED}✗ FAIL: commit.sh with GordianOpenIntegrity.yaml should produce a commit${NC}"
+    exit 1
+fi
+# Verify fingerprint is in .dco-signatures
+if ! grep -q "signature: SHA256:" ".dco-signatures"; then
+    echo -e "${RED}✗ FAIL: .dco-signatures should contain signing key fingerprint${NC}"
+    exit 1
+fi
+echo -e "${GREEN}✓ commit.sh with GordianOpenIntegrity.yaml and --signing-key works correctly${NC}"
 echo
 
 # Final success message

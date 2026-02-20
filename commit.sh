@@ -321,6 +321,30 @@ EOF
     echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo
     echo -e "${BLUE}This is your first commit to this repository.${NC}"
+    echo
+
+    # Show repo origin URL
+    local repo_origin
+    repo_origin=$(git remote get-url origin 2>/dev/null || echo "")
+    if [[ -n "$repo_origin" ]]; then
+        echo -e "  ${BOLD}Repository:${NC} ${CYAN}$repo_origin${NC}"
+    else
+        echo -e "  ${BOLD}Repository:${NC} \033[0;90munknown\033[0m"
+    fi
+
+    # Show .repo-identifier if it exists
+    local repo_id_file="$git_root/.repo-identifier"
+    local repo_id
+    if [[ -f "$repo_id_file" ]]; then
+        repo_id=$(cat "$repo_id_file" 2>/dev/null | tr -d '[:space:]')
+    fi
+    if [[ -n "$repo_id" ]]; then
+        echo -e "  ${BOLD}Identifier:${NC} ${CYAN}$repo_id${NC}"
+    else
+        echo -e "  ${BOLD}Identifier:${NC} \033[0;90munknown\033[0m"
+    fi
+
+    echo
     echo -e "${BLUE}Please read and agree to the Developer Certificate of Origin below.${NC}"
     echo
     

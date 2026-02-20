@@ -281,4 +281,195 @@ describe('Dco', function () {
             expect(countAfterSecond.text().trim()).toBe(countAfterFirst.text().trim())
         })
     })
+
+    // ──────────────────────────────────────────────────────────────
+    // 8. getSignatures fingerprint parsing
+    // ──────────────────────────────────────────────────────────────
+
+    describe('8. getSignatures fingerprint', function () {
+
+        it('should parse fingerprint from signature line', async function () {
+            const repoDir = await createTestRepo('sigs-fingerprint')
+            const keysDir = join(workbenchDir, 'sigs-fp-keys')
+            await mkdir(keysDir, { recursive: true })
+
+            // Generate test SSH key
+            const keyPath = join(keysDir, 'test_ed25519')
+            if (!existsSync(keyPath)) {
+                const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_fp', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                await keygen.exited
+            }
+
+            // Sign with a signing key so fingerprint is recorded
+            await dco.sign({ repoDir, autoAgree: true, signingKeyPath: keyPath })
+
+            const result = await dco.getSignatures({ repoDir })
+            expect(result.found).toBe(true)
+            expect(result.signatures.length).toBe(1)
+            expect(result.signatures[0].fingerprint).toContain('SHA256:')
+        })
+    })
+
+    // ──────────────────────────────────────────────────────────────
+    // 9. selectKey
+    // ──────────────────────────────────────────────────────────────
+
+    describe('9. selectKey', function () {
+
+        it('should auto-create a key with --yes-signoff when no keys exist', async function () {
+            const repoDir = await createTestRepo('select-key-create')
+            const fakeHome = join(workbenchDir, 'select-key-create-home')
+            await mkdir(fakeHome, { recursive: true })
+
+            // Set HOME_DIR to isolated dir
+            const origHome = process.env.HOME_DIR
+            process.env.HOME_DIR = fakeHome
+
+            try {
+                const result = await dco.selectKey({ repoDir, autoAgree: true })
+                expect(result.keyPath).toContain('dco_signing_ed25519')
+                expect(existsSync(result.keyPath)).toBe(true)
+                // Verify it's an ed25519 key
+                const pubContent = await readFile(result.keyPath + '.pub', 'utf-8')
+                expect(pubContent).toContain('ssh-ed25519')
+            } finally {
+                if (origHome !== undefined) {
+                    process.env.HOME_DIR = origHome
+                } else {
+                    delete process.env.HOME_DIR
+                }
+            }
+        })
+
+        it('should auto-select existing key with --yes-signoff', async function () {
+            const repoDir = await createTestRepo('select-key-existing')
+            const fakeHome = join(workbenchDir, 'select-key-existing-home')
+            const sshDir = join(fakeHome, '.ssh')
+            await mkdir(sshDir, { recursive: true })
+
+            // Create a test key in the fake home
+            const keyPath = join(sshDir, 'my_ed25519')
+            const keygen1 = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_select', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+            await keygen1.exited
+
+            const origHome = process.env.HOME_DIR
+            process.env.HOME_DIR = fakeHome
+
+            try {
+                const result = await dco.selectKey({ repoDir, autoAgree: true })
+                expect(result.keyPath).toBe(keyPath)
+            } finally {
+                if (origHome !== undefined) {
+                    process.env.HOME_DIR = origHome
+                } else {
+                    delete process.env.HOME_DIR
+                }
+            }
+        })
+
+        it('should auto-match key by fingerprint from .dco-signatures', async function () {
+            const repoDir = await createTestRepo('select-key-match')
+            const fakeHome = join(workbenchDir, 'select-key-match-home')
+            const sshDir = join(fakeHome, '.ssh')
+            await mkdir(sshDir, { recursive: true })
+
+            // Create a test key
+            const keyPath = join(sshDir, 'match_ed25519')
+            const keygen2 = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_match', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+            await keygen2.exited
+
+            // Sign the DCO with this key so fingerprint is recorded
+            await dco.sign({ repoDir, autoAgree: true, signingKeyPath: keyPath })
+
+            const origHome = process.env.HOME_DIR
+            process.env.HOME_DIR = fakeHome
+
+            try {
+                // selectKey should auto-match the fingerprint
+                const result = await dco.selectKey({ repoDir, autoAgree: false })
+                expect(result.keyPath).toBe(keyPath)
+            } finally {
+                if (origHome !== undefined) {
+                    process.env.HOME_DIR = origHome
+                } else {
+                    delete process.env.HOME_DIR
+                }
+            }
+        })
+    })
+
+    // ──────────────────────────────────────────────────────────────
+    // 10. sign with GordianOpenIntegrity.yaml
+    // ──────────────────────────────────────────────────────────────
+
+    describe('10. sign with GordianOpenIntegrity', function () {
+
+        it('should auto-select signing key when .o/GordianOpenIntegrity.yaml exists and --yes-signoff', async function () {
+            const repoDir = await createTestRepo('gordian-auto')
+            const fakeHome = join(workbenchDir, 'gordian-auto-home')
+            await mkdir(fakeHome, { recursive: true })
+
+            // Create .o/GordianOpenIntegrity.yaml
+            await mkdir(join(repoDir, '.o'), { recursive: true })
+            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
+
+            const origHome = process.env.HOME_DIR
+            process.env.HOME_DIR = fakeHome
+
+            try {
+                await dco.sign({ repoDir, autoAgree: true })
+
+                // Verify signing happened with a key (fingerprint should be in .dco-signatures)
+                const sigs = await dco.getSignatures({ repoDir })
+                expect(sigs.found).toBe(true)
+                expect(sigs.signatures.length).toBe(1)
+                expect(sigs.signatures[0].fingerprint).toContain('SHA256:')
+            } finally {
+                if (origHome !== undefined) {
+                    process.env.HOME_DIR = origHome
+                } else {
+                    delete process.env.HOME_DIR
+                }
+            }
+        })
+
+        it('should use explicit --signing-key even with GordianOpenIntegrity.yaml', async function () {
+            const repoDir = await createTestRepo('gordian-explicit')
+            const keysDir = join(workbenchDir, 'gordian-explicit-keys')
+            await mkdir(keysDir, { recursive: true })
+
+            // Create .o/GordianOpenIntegrity.yaml
+            await mkdir(join(repoDir, '.o'), { recursive: true })
+            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
+
+            // Generate test SSH key
+            const keyPath = join(keysDir, 'explicit_ed25519')
+            if (!existsSync(keyPath)) {
+                const keygen3 = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_explicit', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                await keygen3.exited
+            }
+
+            await dco.sign({ repoDir, autoAgree: true, signingKeyPath: keyPath })
+
+            // Verify the specific key's fingerprint is in .dco-signatures
+            const fpResult = await $`ssh-keygen -lf ${keyPath}`.quiet()
+            const expectedFp = fpResult.text().trim().split(/\s+/)[1]
+
+            const sigs = await dco.getSignatures({ repoDir })
+            expect(sigs.found).toBe(true)
+            expect(sigs.signatures[0].fingerprint).toBe(expectedFp)
+        })
+
+        it('should not require signing key without GordianOpenIntegrity.yaml', async function () {
+            const repoDir = await createTestRepo('no-gordian')
+
+            // Sign without signing key and without GordianOpenIntegrity.yaml
+            await dco.sign({ repoDir, autoAgree: true })
+
+            const sigs = await dco.getSignatures({ repoDir })
+            expect(sigs.found).toBe(true)
+            // No fingerprint since no signing key was used
+            expect(sigs.signatures[0].fingerprint).toBe('')
+        })
+    })
 })
