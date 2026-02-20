@@ -4,18 +4,18 @@ $defs:
     $ref: "https://datatracker.ietf.org/doc/draft-mcnally-envelope/"
   mark:
     $ref: "https://github.com/BlockchainCommons/Research/blob/master/papers/bcr-2025-001-provenance-mark.md"
-envelope: "ur:envelope/lptpsotanshdhdcxwtmtbzpmhhetwdehsknyvdrejphdntiavopycecmmuwzrlhecaiyprhhbylbytrnoyaylftpsohdgltansgylftanshfhdcxfyonwttkhdtokngtjpbdiacwmejnintiwdpeadflmhpsdespynkbbkmsnydajsqdtansgrhdcxgubabwwzdsclswurecrhfmltsnhkhkamleptdywyamtydasgkivsqznsrnfpbdadoycsfncsfgoycsfztpsohdjktngdgmgwhflfaxhdimeejoothkcfmepmptmnzczojyfluybtkeyawzdasojyhtskwecaiywfgarhkgotcmhkvldpzctkhlsthyntsaaddijtmejeleetwnwmjohftyjknsoyimuowfahgmsabzrnledwrlmutdoslgtpytlkrdvatnfgptfwknzotohgnlvyrppyfttdvogakkeyhfvdrhtlwftdhnrdfpaxjtoytpsoksdtfljljpieinhsjtgwjoihjtgajtjyihiojpinjykkdmgmihjojljkinjyjljpkkgaieihjtjyiniyinihjptpsoksehieinieftjpihjojlftetidesidiaemiaeseseheyiadyehemetenemiaihiaecemeciyesdyetehehiheoenemehihdyeyeheyoytpsoksctfljljpieinhsjtgwjoihjtgajtjyihiojpinjykkdmguiniojtinjtiogrihkktpsokshnjkjkisdpihieeyececehescxfpfpfpfpfxeoglknhsfxehjzhtfygaehglghfeecfpfpfpfpgagdjtgoknhkfxgokpkkgmflgmgleogsdniofdemksksghgaidhdethfjnjegtecfxfphfeeflkphdkkjzkogwfecxjyeeeedpjkiniojtinjtiodpjeihkkwznsryot"
-mark: "5e8815e1"
+envelope: "ur:envelope/lptpsotanshdhdcxwtmtbzpmhhetwdehsknyvdrejphdntiavopycecmmuwzrlhecaiyprhhbylbytrnoyaylftpsohdgltansgylftanshfhdcxfyonwttkhdtokngtjpbdiacwmejnintiwdpeadflmhpsdespynkbbkmsnydajsqdtansgrhdcxgubabwwzdsclswurecrhfmltsnhkhkamleptdywyamtydasgkivsqznsrnfpbdadoycsfncsfgoytpsoksdtfljljpieinhsjtgwjoihjtgajtjyihiojpinjykkdmgmihjojljkinjyjljpkkgaieihjtjyiniyinihjptpsoksehieinieftjpihjojlftiheoieidhsemeeiyemiaeeeyideeeneseseoesihiyieethsidenhsihiyeteoecetiaeeeseniaidieoycsfztpsohdjktngdgmgwhflfaxhdimeejoothkcfmepmptmnzczojyfluybtkeyawzdasojyhtskwecaiywfgarhkgotcmhkvldpzctkhlsthyntsaaddijtmejeleetwnwmjohftyjknsoyimuowfahgmsabzrhzttdkkcefhfllrfwceuojljeweolkbamwewkgerfsgoylrrngelsrngrmuytfyvdrhtlwftdhnpdtitlfsoytpsoksctfljljpieinhsjtgwjoihjtgajtjyihiojpinjykkdmguiniojtinjtiogrihkktpsokshnjkjkisdpihieeyececehescxfpfpfpfpfxeoglknhsfxehjzhtfygaehglghfeecfpfpfpfpgagdjtgoknhkfxgokpkkgmflgmgleogsdniofdemksksghgaidhdethfjnjegtecfxfphfeeflkphdkkjzkogwfecxjyeeeedpjkiniojtinjtiodpjeihkkisuohyiy"
+mark: "59feeb2f"
 ---
-# Repository DID: did:repo:8b9bc7c9912c017867cec575f90811e3671e0212
-# Current Mark: 5e8815e1 (🅑 HOLY LOGO BUZZ VERY)
-# Inception Mark: abd345a2 (🅑 PLAY TIME FREE OBOE)
+# Repository DID: did:repo:e3dba74f7c42b469939efd8ab6aef8358c496cbd
+# Current Mark: 59feeb2f (🅑 HAWK ZONE WARM DULL)
+# Inception Mark: 4e894f5a (🅑 GIRL LOUD GLOW HEAT)
 # XID(f09615ad) [
 #     'key': Bytes(78) [
 #         'allow': 'All'
 #     ]
+#     "GordianOpenIntegrity.RepositoryIdentifier": "did:repo:e3dba74f7c42b469939efd8ab6aef8358c496cbd"
 #     'provenance': Bytes(115)
-#     "GordianOpenIntegrity.RepositoryIdentifier": "did:repo:8b9bc7c9912c017867cec575f90811e3671e0212"
 #     "GordianOpenIntegrity.SigningKey": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPnUzYCUuyRGRN3L+gH7xxTIbX8VmkM5CAV4GuXylvOE t44-signing-key"
 # ]
 # Trust established using https://github.com/Stream44/t44-BlockchainCommons.com
