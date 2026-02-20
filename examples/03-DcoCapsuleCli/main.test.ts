@@ -84,6 +84,7 @@ describe('DCO CLI', function () {
         const output = result.output
         expect(output).toContain('Developer Certificate of Origin (DCO) CLI')
         expect(output).toContain('commit')
+        expect(output).toContain('sign')
         expect(output).toContain('validate')
         expect(output).toContain('status')
     })
@@ -309,6 +310,89 @@ describe('DCO CLI', function () {
 
         const sigContent = await readFile(join(repoDir, '.dco-signatures'), 'utf-8')
         expect(sigContent).toContain(expectedFp)
+    })
+
+    describe('sign', function () {
+
+        it('should sign DCO without committing user changes', async function () {
+            const repoDir = await createTestRepo('cli-sign-only')
+
+            // Stage a user file before signing
+            await writeFile(join(repoDir, 'README.md'), '# Test\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['sign', '--yes-signoff'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('DCO signed successfully')
+
+            // Verify .dco-signatures was created and committed
+            expect(existsSync(join(repoDir, '.dco-signatures'))).toBe(true)
+
+            // Verify the user file is NOT in any commit — it should still be staged
+            const log = await $`git log --name-only --format=''`.cwd(repoDir).text()
+            expect(log).not.toContain('README.md')
+
+            // Verify README.md is still staged (in the index)
+            const staged = await $`git diff --cached --name-only`.cwd(repoDir).text()
+            expect(staged.trim()).toContain('README.md')
+        })
+
+        it('should create .dco-signatures with correct content', async function () {
+            const repoDir = await createTestRepo('cli-sign-sigs')
+
+            const result = await spawnDco(['sign', '--yes-signoff'], { cwd: repoDir })
+
+            expect(result.exitCode).toBe(0)
+
+            const sigContent = await readFile(join(repoDir, '.dco-signatures'), 'utf-8')
+            expect(sigContent).toContain('Test User')
+            expect(sigContent).toContain('test@example.com')
+            expect(sigContent).toContain('signed:')
+            expect(sigContent).toContain('agreement:')
+        })
+
+        it('should be idempotent — re-signing shows already signed', async function () {
+            const repoDir = await createTestRepo('cli-sign-idempotent')
+
+            // Sign first time
+            const first = await spawnDco(['sign', '--yes-signoff'], { cwd: repoDir })
+            expect(first.exitCode).toBe(0)
+            expect(first.output).toContain('DCO signed successfully')
+
+            // Sign second time — should show already signed
+            const second = await spawnDco(['sign', '--yes-signoff'], { cwd: repoDir })
+            expect(second.exitCode).toBe(0)
+            expect(second.output).toContain('DCO Already Signed')
+        })
+
+        it('should sign with --signing-key and record fingerprint', async function () {
+            const repoDir = await createTestRepo('cli-sign-key')
+            const keysDir = join(workbenchDir, 'cli-sign-keys')
+            await mkdir(keysDir, { recursive: true })
+
+            // Generate test SSH key
+            const keyPath = join(keysDir, 'sign_ed25519')
+            if (!existsSync(keyPath)) {
+                const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_sign', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                await keygen.exited
+            }
+
+            const result = await spawnDco(['sign', '--signing-key', keyPath, '--yes-signoff'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+
+            // Verify fingerprint is in .dco-signatures
+            const sigContent = await readFile(join(repoDir, '.dco-signatures'), 'utf-8')
+            expect(sigContent).toContain('SHA256:')
+        })
+
     })
 
     describe('push', function () {

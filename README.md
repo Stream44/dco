@@ -29,10 +29,14 @@ A great template for open source projects is: [https://developercertificate.org]
 ### Signing
 
 ```
+# Run once to sign DCO
+bunx @stream44.studio/dco sign [--signing-key ~/.ssh/key]
+
+# Like 'git commit' but with signature
 bunx @stream44.studio/dco commit [--signing-key ~/.ssh/key] <git arguments>
 ```
 
-Also see [Github Action](#github-action) below.
+See [Git Commit Script](#git-commit-script) below.
 
 
 ### Verifying
@@ -49,7 +53,7 @@ Also see [Github Action](#github-action) below.
 Use `dco push` to combine unsigned local commits on a branch into a single DCO-signed commit and push:
 
 ```
-bunx @stream44.studio/dco push [-- <git push args>]
+bunx @stream44.studio/dco push [-m "<commit message>"] [-- <git push args>]
 ```
 
 This is the recommended workflow for contributors:

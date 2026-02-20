@@ -75,6 +75,32 @@ program
     })
 
 program
+    .command('sign')
+    .description('Sign the DCO without committing user changes')
+    .option('--signing-key <path>', 'SSH key for cryptographic signing')
+    .option('--yes-signoff', 'Auto-agree to DCO terms')
+    .action(async (opts) => {
+        const repoDir = resolve(process.cwd())
+
+        const { spine, run } = await bootCapsule()
+
+        await run({}, async ({ apis }: any) => {
+            const dco = apis[spine.capsuleSourceLineRef].dco
+
+            const result = await dco.sign({
+                repoDir,
+                autoAgree: opts.yesSignoff || false,
+                signingKeyPath: opts.signingKey ? resolve(opts.signingKey) : undefined,
+            })
+
+            if (!result.alreadySigned) {
+                console.log()
+                console.log(chalk.green('✓ DCO signed successfully'))
+            }
+        })
+    })
+
+program
     .command('validate')
     .description('Validate DCO signatures on commits')
     .option('--verbose', 'Show detailed output')
