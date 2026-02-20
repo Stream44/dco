@@ -50,7 +50,6 @@ program
     .description('Sign the DCO and commit (default)')
     .option('--signing-key <path>', 'SSH key for cryptographic signing')
     .option('--yes-signoff', 'Auto-agree to DCO terms')
-    .option('--non-interactive', 'Skip interactive prompts (for use in git hooks)')
     .allowUnknownOption()
     .argument('[gitArgs...]', 'Additional arguments passed through to git commit (e.g. -m "message")')
     .action(async (gitArgs: string[], opts) => {
@@ -66,7 +65,6 @@ program
                 autoAgree: opts.yesSignoff || false,
                 signingKeyPath: opts.signingKey ? resolve(opts.signingKey) : undefined,
                 gitArgs: gitArgs.length > 0 ? gitArgs : undefined,
-                nonInteractive: opts.nonInteractive || false,
             })
 
             if (!result.alreadySigned) {
@@ -157,52 +155,38 @@ program
     })
 
 program
-    .command('install-hook')
-    .description('Install the DCO prepare-commit-msg git hook in the current repository')
-    .action(async () => {
-        const { writeFile, chmod, mkdir } = await import('fs/promises')
-        const { existsSync } = await import('fs')
-        const { join } = await import('path')
-
+    .command('push')
+    .description('Combine unsigned branch commits into a single DCO-signed commit and push')
+    .option('--signing-key <path>', 'SSH key for cryptographic signing')
+    .option('--yes-signoff', 'Auto-agree to DCO terms')
+    .option('-m, --message <message>', 'Override the squashed commit message')
+    .argument('[pushArgs...]', 'Additional arguments passed through to git push')
+    .action(async (pushArgs: string[], opts) => {
         const repoDir = resolve(process.cwd())
-        const hooksDir = join(repoDir, '.git', 'hooks')
-        const hookPath = join(hooksDir, 'prepare-commit-msg')
 
-        if (!existsSync(join(repoDir, '.git'))) {
-            console.error(chalk.red('Not a git repository'))
-            process.exit(1)
-        }
+        const { spine, run } = await bootCapsule()
 
-        const hookContent = '#!/usr/bin/env bash\nbunx @stream44.studio/dco commit --non-interactive "$@"\n'
+        await run({}, async ({ apis }: any) => {
+            const dco = apis[spine.capsuleSourceLineRef].dco
 
-        if (existsSync(hookPath)) {
-            const { readFile } = await import('fs/promises')
-            const existing = await readFile(hookPath, 'utf-8')
-            if (existing === hookContent) {
-                console.log(chalk.green(`✓ DCO commit hook already installed at ${hookPath}`))
-                return
+            try {
+                const result = await dco.push({
+                    repoDir,
+                    autoAgree: opts.yesSignoff || false,
+                    signingKeyPath: opts.signingKey ? resolve(opts.signingKey) : undefined,
+                    pushArgs: pushArgs.length > 0 ? pushArgs : undefined,
+                    message: opts.message || undefined,
+                })
+
+                if (result.squashed) {
+                    console.log(chalk.green(`✓ Squashed ${result.unsignedCount} unsigned commit(s) into a signed commit`))
+                }
+                console.log(chalk.green('✓ Pushed to remote'))
+            } catch (err: any) {
+                console.error(chalk.red(`✗ ${err.message}`))
+                process.exit(1)
             }
-            console.warn(chalk.yellow(`⚠ WARNING: A different hook already exists at ${hookPath}`))
-            console.warn(chalk.yellow('  The DCO hook was NOT installed to avoid overwriting your existing hook.'))
-            console.warn('')
-            console.warn(chalk.white('  To integrate DCO signing, choose one of:'))
-            console.warn('')
-            console.warn(chalk.white('  A) Add to your existing hook:'))
-            console.warn(chalk.cyan('       bunx @stream44.studio/dco commit "$@"'))
-            console.warn('')
-            console.warn(chalk.white('  B) Sign once manually (records your DCO agreement):'))
-            console.warn(chalk.cyan('       bunx @stream44.studio/dco commit'))
-            console.warn(chalk.white('     Then ensure your commits use --signoff and optionally --gpg-sign:'))
-            console.warn(chalk.cyan('       git commit --signoff --gpg-sign -m "your message"'))
-            console.warn('')
-            return
-        }
-
-        await mkdir(hooksDir, { recursive: true })
-        await writeFile(hookPath, hookContent, 'utf-8')
-        await chmod(hookPath, 0o755)
-
-        console.log(chalk.green(`✓ DCO commit hook installed at ${hookPath}`))
+        })
     })
 
 program.parse(process.argv)

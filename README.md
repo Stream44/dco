@@ -32,7 +32,7 @@ A great template for open source projects is: [https://developercertificate.org]
 bunx @stream44.studio/dco commit [--signing-key ~/.ssh/key] <git arguments>
 ```
 
-Also see [Git Commit Hook](#git-commit-hook) below.
+Also see [Github Action](#github-action) below.
 
 
 ### Verifying
@@ -42,6 +42,30 @@ bunx @stream44.studio/dco validate
 ```
 
 Also see [Github Action](#github-action) below.
+
+
+### Pushing
+
+Use `dco push` to combine unsigned local commits on a branch into a single DCO-signed commit and push:
+
+```
+bunx @stream44.studio/dco push [-- <git push args>]
+```
+
+This is the recommended workflow for contributors:
+
+1. Work on a feature branch, committing freely without `--signoff`
+2. When ready to push, run `dco push`
+3. The tool finds the last signed commit on the branch, soft-resets to it, runs the DCO signing process, and creates a single signed commit with all your changes
+4. The signed commit is then pushed to the remote
+
+The push command will:
+- Verify you are on a feature branch (not `main` or `master`)
+- Verify there are no pending uncommitted changes
+- Find the last `Signed-off-by` commit on the branch
+- Soft-reset to that commit, preserving all changes in the working tree
+- Run the DCO commit process to create a single signed commit
+- Push to the remote with any additional arguments you provide
 
 
 Tools
@@ -76,41 +100,6 @@ Optionally a signing key can be supplied to cryptographically sign commits as we
 key will be sored in the `.dco-signatures` file.
 
 A project can choose to require signing keys or not by setting `enforceSignatureFingerprints` for the github action.
-
-### Git Commit Hook
-
-Create `.git/hooks/prepare-commit-msg` in your repository:
-
-```bash
-#!/usr/bin/env bash
-bunx @stream44.studio/dco commit --non-interactive "$@"
-```
-
-Make it executable:
-
-```bash
-chmod +x .git/hooks/prepare-commit-msg
-```
-
-The `--non-interactive` flag is required for git hooks — it prevents any interactive prompts (e.g. SSH key selection) from blocking the commit. The hook will add `--signoff` automatically. If first-time signing is needed, run `bunx @stream44.studio/dco commit` once interactively first to record your key choice.
-
-To install the hook automatically when contributors run `bun install`, add a `postinstall` script to your `package.json`:
-
-```json
-"scripts": {
-    "postinstall": "bunx @stream44.studio/dco install-hook"
-}
-```
-
-Or if you prefer a simple inline shell command:
-
-```json
-"scripts": {
-    "postinstall": "printf '#!/usr/bin/env bash\\nbunx @stream44.studio/dco commit --non-interactive \"$@\"\\n' > .git/hooks/prepare-commit-msg && chmod +x .git/hooks/prepare-commit-msg"
-}
-```
-
-This ensures every contributor who runs `bun install` gets the hook installed automatically.
 
 ### Verification Script
 

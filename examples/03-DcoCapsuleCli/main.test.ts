@@ -311,126 +311,197 @@ describe('DCO CLI', function () {
         expect(sigContent).toContain(expectedFp)
     })
 
-    describe('install-hook', function () {
+    describe('push', function () {
 
-        it('should install hook into a fresh repo', async function () {
-            const repoDir = await createTestRepo('cli-install-hook-fresh')
+        // Helper: create a repo with a file-based bare origin, DCO pre-signed, on main
+        async function createPushTestRepo(name: string): Promise<{ repoDir: string; bareDir: string }> {
+            // Create a bare repo as the "remote"
+            const bareDir = join(workbenchDir, `${name}-bare`)
+            await mkdir(bareDir, { recursive: true })
+            await $`git init --bare`.cwd(bareDir).quiet()
 
-            const result = await spawnDco(['install-hook'], { cwd: repoDir })
+            // Clone it into a working repo
+            const repoDir = join(workbenchDir, name)
+            await $`git clone ${bareDir} ${repoDir}`.quiet()
+            await $`git config user.name "Test User"`.cwd(repoDir).quiet()
+            await $`git config user.email "test@example.com"`.cwd(repoDir).quiet()
 
-            expect(result.exitCode).toBe(0)
-            expect(result.output).toContain('DCO commit hook installed')
+            // Create initial signed commit on main with DCO
+            await copyFile(DCO_MD_SOURCE, join(repoDir, 'DCO.md'))
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit --signoff -m "initial: add DCO.md"`.cwd(repoDir).quiet()
 
-            const hookPath = join(repoDir, '.git', 'hooks', 'prepare-commit-msg')
-            expect(existsSync(hookPath)).toBe(true)
+            // Pre-sign the DCO so push tests don't trigger first-time agreement
+            const signResult = await spawnDco(['commit', '--yes-signoff'], { cwd: repoDir })
+            if (signResult.exitCode !== 0) {
+                throw new Error(`Failed to pre-sign DCO: ${signResult.output}`)
+            }
 
-            const hookContent = await readFile(hookPath, 'utf-8')
-            expect(hookContent).toContain('bunx @stream44.studio/dco commit --non-interactive')
+            await $`git push -u origin main`.cwd(repoDir).quiet()
 
-            // Verify hook is executable
-            const stat = Bun.spawn(['test', '-x', hookPath], { stdout: 'pipe', stderr: 'pipe' })
-            const exitCode = await stat.exited
-            expect(exitCode).toBe(0)
-        })
+            return { repoDir, bareDir }
+        }
 
-        it('should be idempotent when hook already matches', async function () {
-            const repoDir = await createTestRepo('cli-install-hook-idempotent')
+        it('should fail when on main branch', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-main')
 
-            // Install once
-            await spawnDco(['install-hook'], { cwd: repoDir })
-
-            // Install again — should succeed silently
-            const result = await spawnDco(['install-hook'], { cwd: repoDir })
-
-            expect(result.exitCode).toBe(0)
-            expect(result.output).toContain('already installed')
-        })
-
-        it('should warn (not fail) when a different hook already exists', async function () {
-            const repoDir = await createTestRepo('cli-install-hook-conflict')
-
-            // Write a different hook manually
-            const hooksDir = join(repoDir, '.git', 'hooks')
-            await mkdir(hooksDir, { recursive: true })
-            const hookPath = join(hooksDir, 'prepare-commit-msg')
-            await writeFile(hookPath, '#!/usr/bin/env bash\necho "custom hook"\n', 'utf-8')
-
-            const result = await spawnDco(['install-hook'], { cwd: repoDir })
-
-            // Should exit 0 (warning, not failure)
-            expect(result.exitCode).toBe(0)
-            expect(result.output).toContain('WARNING')
-            expect(result.output).toContain('bunx @stream44.studio/dco commit')
-
-            // Original hook must be preserved
-            const hookContent = await readFile(hookPath, 'utf-8')
-            expect(hookContent).toContain('custom hook')
-        })
-
-        it('should fail when not in a git repository', async function () {
-            const notARepo = join(workbenchDir, 'cli-install-hook-not-git')
-            await mkdir(notARepo, { recursive: true })
-
-            const result = await spawnDco(['install-hook'], { cwd: notARepo })
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
 
             expect(result.exitCode).not.toBe(0)
-            expect(result.output).toContain('Not a git repository')
+            expect(result.output).toContain("Cannot push from 'main'")
         })
 
-    })
+        it('should fail when there are uncommitted changes', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-dirty')
 
-    describe('commit --non-interactive', function () {
+            await $`git checkout -b feat/dirty`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'dirty.txt'), 'uncommitted\n')
 
-        it('should sign DCO without prompting in a non-Gordian repo', async function () {
-            const repoDir = await createTestRepo('cli-non-interactive-plain')
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
 
-            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff'], { cwd: repoDir })
+            expect(result.exitCode).not.toBe(0)
+            expect(result.output).toContain('uncommitted changes')
+        })
+
+        it('should just push when all commits are already signed', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-already-signed')
+
+            await $`git checkout -b feat/signed`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'file.txt'), 'content\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit --signoff -m "feat: already signed"`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
 
             if (result.exitCode !== 0) {
                 console.error('CLI output:', result.output)
             }
             expect(result.exitCode).toBe(0)
-            expect(result.output).toContain('DCO signed successfully')
-            expect(existsSync(join(repoDir, '.dco-signatures'))).toBe(true)
+            expect(result.output).toContain('Pushed to remote')
+
+            // Verify the commit is on the remote
+            const bareLog = await $`git log --oneline feat/signed`.cwd(join(workbenchDir, 'cli-push-already-signed-bare')).text()
+            expect(bareLog).toContain('already signed')
         })
 
-        it('should fail with a clear error in a Gordian repo when no signing key is configured', async function () {
-            const repoDir = await createTestRepo('cli-non-interactive-gordian')
+        it('should squash a single unsigned commit and push', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-single')
 
-            // Create .o/GordianOpenIntegrity.yaml to trigger key requirement
-            await mkdir(join(repoDir, '.o'), { recursive: true })
-            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
+            await $`git checkout -b feat/single`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'feature.txt'), 'new feature\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "feat: unsigned work"`.cwd(repoDir).quiet()
 
-            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff'], { cwd: repoDir })
-
-            expect(result.exitCode).not.toBe(0)
-            expect(result.output).toContain('requires a DCO signing key')
-            expect(result.output).toContain('bunx @stream44.studio/dco commit')
-        })
-
-        it('should succeed in a Gordian repo when --signing-key is explicitly provided', async function () {
-            const repoDir = await createTestRepo('cli-non-interactive-gordian-key')
-            const keysDir = join(workbenchDir, 'cli-non-interactive-keys')
-            await mkdir(keysDir, { recursive: true })
-
-            // Create .o/GordianOpenIntegrity.yaml
-            await mkdir(join(repoDir, '.o'), { recursive: true })
-            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
-
-            // Generate test SSH key
-            const keyPath = join(keysDir, 'non_interactive_ed25519')
-            if (!existsSync(keyPath)) {
-                const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_ni', '-q'], { stdout: 'pipe', stderr: 'pipe' })
-                await keygen.exited
-            }
-
-            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff', '--signing-key', keyPath], { cwd: repoDir })
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
 
             if (result.exitCode !== 0) {
                 console.error('CLI output:', result.output)
             }
             expect(result.exitCode).toBe(0)
-            expect(result.output).toContain('DCO signed successfully')
+            expect(result.output).toContain('Squashed 1 unsigned commit')
+            expect(result.output).toContain('Pushed to remote')
+
+            // Verify the commit on the branch has Signed-off-by
+            const log = await $`git log -1 --format=%B`.cwd(repoDir).text()
+            expect(log).toContain('Signed-off-by:')
+
+            // Verify the file content is preserved
+            const content = await readFile(join(repoDir, 'feature.txt'), 'utf-8')
+            expect(content).toBe('new feature\n')
+        })
+
+        it('should squash multiple unsigned commits and push', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-multi')
+
+            await $`git checkout -b feat/multi`.cwd(repoDir).quiet()
+
+            await writeFile(join(repoDir, 'a.txt'), 'aaa\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "feat: first change"`.cwd(repoDir).quiet()
+
+            await writeFile(join(repoDir, 'b.txt'), 'bbb\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "feat: second change"`.cwd(repoDir).quiet()
+
+            await writeFile(join(repoDir, 'c.txt'), 'ccc\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "feat: third change"`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('Squashed 3 unsigned commit')
+            expect(result.output).toContain('Pushed to remote')
+
+            // Verify all files are present
+            expect(existsSync(join(repoDir, 'a.txt'))).toBe(true)
+            expect(existsSync(join(repoDir, 'b.txt'))).toBe(true)
+            expect(existsSync(join(repoDir, 'c.txt'))).toBe(true)
+
+            // Verify the squashed commit has Signed-off-by
+            const log = await $`git log -1 --format=%B`.cwd(repoDir).text()
+            expect(log).toContain('Signed-off-by:')
+        })
+
+        it('should use custom message with -m flag', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-custom-msg')
+
+            await $`git checkout -b feat/custom-msg`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'file.txt'), 'content\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "wip: messy commit"`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['push', '--yes-signoff', '-m', 'feat: clean commit message'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+
+            // Verify the custom message was used
+            const log = await $`git log -1 --format=%s`.cwd(repoDir).text()
+            expect(log.trim()).toBe('feat: clean commit message')
+        })
+
+        it('should only squash commits back to the last signed one', async function () {
+            const { repoDir } = await createPushTestRepo('cli-push-partial')
+
+            await $`git checkout -b feat/partial`.cwd(repoDir).quiet()
+
+            // First commit — signed
+            await writeFile(join(repoDir, 'signed.txt'), 'signed\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit --signoff -m "feat: signed commit"`.cwd(repoDir).quiet()
+
+            // Second commit — unsigned
+            await writeFile(join(repoDir, 'unsigned1.txt'), 'unsigned1\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "wip: unsigned 1"`.cwd(repoDir).quiet()
+
+            // Third commit — unsigned
+            await writeFile(join(repoDir, 'unsigned2.txt'), 'unsigned2\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "wip: unsigned 2"`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('Squashed 2 unsigned commit')
+
+            // Verify the signed commit is still intact
+            const log = await $`git log --oneline`.cwd(repoDir).text()
+            expect(log).toContain('feat: signed commit')
+
+            // Verify all files are present
+            expect(existsSync(join(repoDir, 'signed.txt'))).toBe(true)
+            expect(existsSync(join(repoDir, 'unsigned1.txt'))).toBe(true)
+            expect(existsSync(join(repoDir, 'unsigned2.txt'))).toBe(true)
         })
 
     })

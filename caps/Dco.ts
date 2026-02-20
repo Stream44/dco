@@ -39,7 +39,6 @@ export async function capsule({
                     value: async function (this: any, context: {
                         repoDir: string
                         autoAgree?: boolean
-                        nonInteractive?: boolean
                     }): Promise<{ keyPath: string }> {
                         const chalk = (await import('chalk')).default
                         const homeDir = process.env.HOME_DIR || process.env.HOME || require('os').homedir()
@@ -105,15 +104,7 @@ export async function capsule({
                             process.exit(1)
                         }
 
-                        // 4. Non-interactive mode: fail with a clear error if no auto-match was found
-                        if (context.nonInteractive) {
-                            console.error('\x1b[31m✗ This repository requires a DCO signing key but none has been configured.\x1b[0m')
-                            console.error('\x1b[31m  Run the following once interactively to sign the DCO and record your key:\x1b[0m')
-                            console.error('\x1b[36m    bunx @stream44.studio/dco commit\x1b[0m')
-                            process.exit(1)
-                        }
-
-                        // 5. If --yes-signoff (autoAgree), auto-create a key
+                        // 4. If --yes-signoff (autoAgree), auto-create a key
                         if (context.autoAgree) {
                             if (keyFiles.length > 0) {
                                 // Use first available key
@@ -130,7 +121,7 @@ export async function capsule({
                             return { keyPath }
                         }
 
-                        // 6. Interactive: present list of keys
+                        // 5. Interactive: present list of keys
                         const inquirer = await import('inquirer')
 
                         const choices: Array<{ name: string; value: any }> = []
@@ -192,7 +183,6 @@ export async function capsule({
                         autoAgree?: boolean
                         signingKeyPath?: string
                         gitArgs?: string[]
-                        nonInteractive?: boolean
                     }) {
                         const { repoDir, autoAgree } = context
 
@@ -209,7 +199,7 @@ export async function capsule({
                         const gordianPath = join(repoDir, GORDIAN_FILE)
                         const hasGordian = existsSync(gordianPath)
                         if (hasGordian && !signingKeyPath) {
-                            const result = await this.selectKey({ repoDir, autoAgree, nonInteractive: context.nonInteractive })
+                            const result = await this.selectKey({ repoDir, autoAgree })
                             signingKeyPath = result.keyPath
                         }
 
@@ -431,6 +421,100 @@ export async function capsule({
                         } catch {
                             return { found: false, signatures: [] }
                         }
+                    }
+                },
+
+                // ══════════════════════════════════════════════════════
+                // push — Combine unsigned branch commits into a signed
+                //         commit and push to remote
+                // ══════════════════════════════════════════════════════
+
+                push: {
+                    type: CapsulePropertyTypes.Function,
+                    value: async function (this: any, context: {
+                        repoDir: string
+                        autoAgree?: boolean
+                        signingKeyPath?: string
+                        pushArgs?: string[]
+                        message?: string
+                    }) {
+                        const { repoDir } = context
+
+                        // 1. Verify we are on a branch (not main/master)
+                        const branch = (await $`git rev-parse --abbrev-ref HEAD`.cwd(repoDir).text()).trim()
+                        if (branch === 'main' || branch === 'master') {
+                            throw new Error(`Cannot push from '${branch}'. Switch to a feature branch first.`)
+                        }
+
+                        // 2. Verify no pending uncommitted changes
+                        const status = (await $`git status --porcelain`.cwd(repoDir).text()).trim()
+                        if (status.length > 0) {
+                            throw new Error('Working directory has uncommitted changes. Commit or stash them first.')
+                        }
+
+                        // 3. Find the last commit with Signed-off-by, walking back from HEAD
+                        const logOutput = (await $`git log --format=%H%n%B%n---END---`.cwd(repoDir).text()).trim()
+                        const entries = logOutput.split('---END---').filter((e: string) => e.trim())
+
+                        let lastSignedHash: string | null = null
+                        let unsignedCount = 0
+
+                        for (const entry of entries) {
+                            const lines = entry.trim().split('\n')
+                            const hash = lines[0].trim()
+                            const body = lines.slice(1).join('\n')
+                            if (body.includes('Signed-off-by:')) {
+                                lastSignedHash = hash
+                                break
+                            }
+                            unsignedCount++
+                        }
+
+                        if (unsignedCount === 0) {
+                            // All commits are already signed — just push
+                            const pushArgs = context.pushArgs || []
+                            await $`git push -u origin HEAD ${pushArgs}`.cwd(repoDir)
+                            return { pushed: true, squashed: false, unsignedCount: 0 }
+                        }
+
+                        // 4. Collect commit messages from unsigned commits for the squashed message
+                        const unsignedMessages: string[] = []
+                        for (let i = 0; i < unsignedCount; i++) {
+                            const lines = entries[i].trim().split('\n')
+                            const msgLines = lines.slice(1).filter((l: string) => l.trim())
+                            unsignedMessages.push(msgLines.join('\n'))
+                        }
+
+                        // Build the squashed commit message (reverse to chronological order)
+                        unsignedMessages.reverse()
+                        const squashMessage = context.message || (
+                            unsignedCount === 1
+                                ? unsignedMessages[0]
+                                : unsignedMessages.map((m: string, i: number) => `${i + 1}. ${m.split('\n')[0]}`).join('\n')
+                        )
+
+                        // 5. Soft-reset to the last signed commit (or to root if none found)
+                        if (lastSignedHash) {
+                            await $`git reset --soft ${lastSignedHash}`.cwd(repoDir)
+                        } else {
+                            // No signed commits at all — reset to the very beginning
+                            // Use --soft to keep all changes staged
+                            await $`git update-ref -d HEAD`.cwd(repoDir)
+                        }
+
+                        // 6. Run DCO commit with all the staged changes
+                        await this.sign({
+                            repoDir,
+                            autoAgree: context.autoAgree,
+                            signingKeyPath: context.signingKeyPath,
+                            gitArgs: ['-m', squashMessage],
+                        })
+
+                        // 7. Push to remote
+                        const pushArgs = context.pushArgs || []
+                        await $`git push -u origin HEAD ${pushArgs}`.cwd(repoDir)
+
+                        return { pushed: true, squashed: true, unsignedCount }
                     }
                 },
 
