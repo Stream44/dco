@@ -83,7 +83,7 @@ Create `.git/hooks/prepare-commit-msg` in your repository:
 
 ```bash
 #!/usr/bin/env bash
-bunx @stream44.studio/dco commit "$@"
+bunx @stream44.studio/dco commit --non-interactive "$@"
 ```
 
 Make it executable:
@@ -92,7 +92,7 @@ Make it executable:
 chmod +x .git/hooks/prepare-commit-msg
 ```
 
-The hook runs before every `git commit`, signs the DCO on first use, and automatically appends `--signoff` to the commit. The original commit message and arguments are passed through unchanged.
+The `--non-interactive` flag is required for git hooks — it prevents any interactive prompts (e.g. SSH key selection) from blocking the commit. The hook will add `--signoff` automatically. If first-time signing is needed, run `bunx @stream44.studio/dco commit` once interactively first to record your key choice.
 
 To install the hook automatically when contributors run `bun install`, add a `postinstall` script to your `package.json`:
 
@@ -106,7 +106,7 @@ Or if you prefer a simple inline shell command:
 
 ```json
 "scripts": {
-    "postinstall": "printf '#!/usr/bin/env bash\\nbunx @stream44.studio/dco commit \"$@\"\\n' > .git/hooks/prepare-commit-msg && chmod +x .git/hooks/prepare-commit-msg"
+    "postinstall": "printf '#!/usr/bin/env bash\\nbunx @stream44.studio/dco commit --non-interactive \"$@\"\\n' > .git/hooks/prepare-commit-msg && chmod +x .git/hooks/prepare-commit-msg"
 }
 ```
 

@@ -183,6 +183,7 @@ export async function capsule({
                         autoAgree?: boolean
                         signingKeyPath?: string
                         gitArgs?: string[]
+                        nonInteractive?: boolean
                     }) {
                         const { repoDir, autoAgree } = context
 
@@ -199,8 +200,15 @@ export async function capsule({
                         const gordianPath = join(repoDir, GORDIAN_FILE)
                         const hasGordian = existsSync(gordianPath)
                         if (hasGordian && !signingKeyPath) {
-                            const result = await this.selectKey({ repoDir, autoAgree })
-                            signingKeyPath = result.keyPath
+                            if (context.nonInteractive) {
+                                console.error('\x1b[31m✗ This repository requires a DCO signing key but none has been configured.\x1b[0m')
+                                console.error('\x1b[31m  Run the following once interactively to sign the DCO and record your key:\x1b[0m')
+                                console.error('\x1b[36m    bunx @stream44.studio/dco commit\x1b[0m')
+                                process.exit(1)
+                            } else {
+                                const result = await this.selectKey({ repoDir, autoAgree })
+                                signingKeyPath = result.keyPath
+                            }
                         }
 
                         // Resolve commit.sh from this package

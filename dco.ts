@@ -50,6 +50,7 @@ program
     .description('Sign the DCO and commit (default)')
     .option('--signing-key <path>', 'SSH key for cryptographic signing')
     .option('--yes-signoff', 'Auto-agree to DCO terms')
+    .option('--non-interactive', 'Skip interactive prompts (for use in git hooks)')
     .allowUnknownOption()
     .argument('[gitArgs...]', 'Additional arguments passed through to git commit (e.g. -m "message")')
     .action(async (gitArgs: string[], opts) => {
@@ -65,6 +66,7 @@ program
                 autoAgree: opts.yesSignoff || false,
                 signingKeyPath: opts.signingKey ? resolve(opts.signingKey) : undefined,
                 gitArgs: gitArgs.length > 0 ? gitArgs : undefined,
+                nonInteractive: opts.nonInteractive || false,
             })
 
             if (!result.alreadySigned) {
@@ -171,7 +173,7 @@ program
             process.exit(1)
         }
 
-        const hookContent = '#!/usr/bin/env bash\nbunx @stream44.studio/dco commit "$@"\n'
+        const hookContent = '#!/usr/bin/env bash\nbunx @stream44.studio/dco commit --non-interactive "$@"\n'
 
         if (existsSync(hookPath)) {
             const { readFile } = await import('fs/promises')

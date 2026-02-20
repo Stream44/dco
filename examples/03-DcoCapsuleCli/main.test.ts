@@ -310,4 +310,129 @@ describe('DCO CLI', function () {
         const sigContent = await readFile(join(repoDir, '.dco-signatures'), 'utf-8')
         expect(sigContent).toContain(expectedFp)
     })
+
+    describe('install-hook', function () {
+
+        it('should install hook into a fresh repo', async function () {
+            const repoDir = await createTestRepo('cli-install-hook-fresh')
+
+            const result = await spawnDco(['install-hook'], { cwd: repoDir })
+
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('DCO commit hook installed')
+
+            const hookPath = join(repoDir, '.git', 'hooks', 'prepare-commit-msg')
+            expect(existsSync(hookPath)).toBe(true)
+
+            const hookContent = await readFile(hookPath, 'utf-8')
+            expect(hookContent).toContain('bunx @stream44.studio/dco commit --non-interactive')
+
+            // Verify hook is executable
+            const stat = Bun.spawn(['test', '-x', hookPath], { stdout: 'pipe', stderr: 'pipe' })
+            const exitCode = await stat.exited
+            expect(exitCode).toBe(0)
+        })
+
+        it('should be idempotent when hook already matches', async function () {
+            const repoDir = await createTestRepo('cli-install-hook-idempotent')
+
+            // Install once
+            await spawnDco(['install-hook'], { cwd: repoDir })
+
+            // Install again — should succeed silently
+            const result = await spawnDco(['install-hook'], { cwd: repoDir })
+
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('already installed')
+        })
+
+        it('should warn (not fail) when a different hook already exists', async function () {
+            const repoDir = await createTestRepo('cli-install-hook-conflict')
+
+            // Write a different hook manually
+            const hooksDir = join(repoDir, '.git', 'hooks')
+            await mkdir(hooksDir, { recursive: true })
+            const hookPath = join(hooksDir, 'prepare-commit-msg')
+            await writeFile(hookPath, '#!/usr/bin/env bash\necho "custom hook"\n', 'utf-8')
+
+            const result = await spawnDco(['install-hook'], { cwd: repoDir })
+
+            // Should exit 0 (warning, not failure)
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('WARNING')
+            expect(result.output).toContain('bunx @stream44.studio/dco commit')
+
+            // Original hook must be preserved
+            const hookContent = await readFile(hookPath, 'utf-8')
+            expect(hookContent).toContain('custom hook')
+        })
+
+        it('should fail when not in a git repository', async function () {
+            const notARepo = join(workbenchDir, 'cli-install-hook-not-git')
+            await mkdir(notARepo, { recursive: true })
+
+            const result = await spawnDco(['install-hook'], { cwd: notARepo })
+
+            expect(result.exitCode).not.toBe(0)
+            expect(result.output).toContain('Not a git repository')
+        })
+
+    })
+
+    describe('commit --non-interactive', function () {
+
+        it('should sign DCO without prompting in a non-Gordian repo', async function () {
+            const repoDir = await createTestRepo('cli-non-interactive-plain')
+
+            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('DCO signed successfully')
+            expect(existsSync(join(repoDir, '.dco-signatures'))).toBe(true)
+        })
+
+        it('should fail with a clear error in a Gordian repo when no signing key is configured', async function () {
+            const repoDir = await createTestRepo('cli-non-interactive-gordian')
+
+            // Create .o/GordianOpenIntegrity.yaml to trigger key requirement
+            await mkdir(join(repoDir, '.o'), { recursive: true })
+            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
+
+            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff'], { cwd: repoDir })
+
+            expect(result.exitCode).not.toBe(0)
+            expect(result.output).toContain('requires a DCO signing key')
+            expect(result.output).toContain('bunx @stream44.studio/dco commit')
+        })
+
+        it('should succeed in a Gordian repo when --signing-key is explicitly provided', async function () {
+            const repoDir = await createTestRepo('cli-non-interactive-gordian-key')
+            const keysDir = join(workbenchDir, 'cli-non-interactive-keys')
+            await mkdir(keysDir, { recursive: true })
+
+            // Create .o/GordianOpenIntegrity.yaml
+            await mkdir(join(repoDir, '.o'), { recursive: true })
+            await writeFile(join(repoDir, '.o/GordianOpenIntegrity.yaml'), '# Gordian Open Integrity\n')
+
+            // Generate test SSH key
+            const keyPath = join(keysDir, 'non_interactive_ed25519')
+            if (!existsSync(keyPath)) {
+                const keygen = Bun.spawn(['ssh-keygen', '-t', 'ed25519', '-f', keyPath, '-N', '', '-C', 'test_ni', '-q'], { stdout: 'pipe', stderr: 'pipe' })
+                await keygen.exited
+            }
+
+            const result = await spawnDco(['commit', '--non-interactive', '--yes-signoff', '--signing-key', keyPath], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('DCO signed successfully')
+        })
+
+    })
+
 })
