@@ -77,12 +77,6 @@ key will be sored in the `.dco-signatures` file.
 
 A project can choose to require signing keys or not by setting `enforceSignatureFingerprints` for the github action.
 
-
-### Verification Script
-
-Ensures all commits were signed off my signatures recorded in `.dco-signatures`.
-
-
 ### Git Commit Hook
 
 Create `.git/hooks/prepare-commit-msg` in your repository:
@@ -118,6 +112,9 @@ Or if you prefer a simple inline shell command:
 
 This ensures every contributor who runs `bun install` gets the hook installed automatically.
 
+### Verification Script
+
+Ensures all commits were signed off my signatures recorded in `.dco-signatures`.
 
 ### Github Action
 
