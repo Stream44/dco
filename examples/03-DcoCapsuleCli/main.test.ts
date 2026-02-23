@@ -19,7 +19,7 @@ const {
             '#': {
                 test: {
                     type: CapsulePropertyTypes.Mapping,
-                    value: 't44/caps/WorkspaceTest',
+                    value: 't44/caps/ProjectTest',
                     options: {
                         '#': {
                             bunTest,
@@ -409,6 +409,7 @@ describe('DCO CLI', function () {
             await $`git clone ${bareDir} ${repoDir}`.quiet()
             await $`git config user.name "Test User"`.cwd(repoDir).quiet()
             await $`git config user.email "test@example.com"`.cwd(repoDir).quiet()
+            await $`git checkout -b main`.cwd(repoDir).quiet()
 
             // Create initial signed commit on main with DCO
             await copyFile(DCO_MD_SOURCE, join(repoDir, 'DCO.md'))
@@ -421,7 +422,7 @@ describe('DCO CLI', function () {
                 throw new Error(`Failed to pre-sign DCO: ${signResult.output}`)
             }
 
-            await $`git push -u origin main`.cwd(repoDir).quiet()
+            await $`git push -u origin HEAD`.cwd(repoDir).quiet()
 
             return { repoDir, bareDir }
         }
