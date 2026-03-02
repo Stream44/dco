@@ -551,6 +551,81 @@ describe('DCO CLI', function () {
             expect(log.trim()).toBe('feat: clean commit message')
         })
 
+        it('should force-push over diverged remote history', async function () {
+            const { repoDir, bareDir } = await createPushTestRepo('cli-push-force-diverged')
+
+            await $`git checkout -b feat/force-diverged`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'local.txt'), 'local\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit --signoff -m "feat: local commit"`.cwd(repoDir).quiet()
+            await $`git push -u origin HEAD`.cwd(repoDir).quiet()
+
+            // Simulate divergence: create a different commit on the remote via a second clone
+            const clone2 = join(workbenchDir, 'cli-push-force-diverged-clone2')
+            await $`git clone ${bareDir} ${clone2}`.quiet()
+            await $`git config user.name "Other User"`.cwd(clone2).quiet()
+            await $`git config user.email "other@example.com"`.cwd(clone2).quiet()
+            await $`git checkout feat/force-diverged`.cwd(clone2).quiet()
+            await writeFile(join(clone2, 'remote.txt'), 'remote\n')
+            await $`git add -A`.cwd(clone2).quiet()
+            await $`git commit --signoff -m "feat: remote commit"`.cwd(clone2).quiet()
+            await $`git push origin HEAD`.cwd(clone2).quiet()
+
+            // Now local is behind remote — normal push would fail
+            // Rewrite local history with a new commit
+            await writeFile(join(repoDir, 'local2.txt'), 'local2\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit --signoff -m "feat: local rewrite"`.cwd(repoDir).quiet()
+
+            // Push without --force should fail
+            const failResult = await spawnDco(['push', '--yes-signoff'], { cwd: repoDir })
+            expect(failResult.exitCode).not.toBe(0)
+
+            // Push with --force should succeed
+            const result = await spawnDco(['push', '--yes-signoff', '--force'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('Pushed to remote')
+
+            // Verify the remote no longer has the diverged commit
+            const bareLog = await $`git log --oneline feat/force-diverged`.cwd(bareDir).text()
+            expect(bareLog).not.toContain('remote commit')
+            expect(bareLog).toContain('local rewrite')
+        })
+
+        it('should force-push with squashed unsigned commits', async function () {
+            const { repoDir, bareDir } = await createPushTestRepo('cli-push-force-squash')
+
+            await $`git checkout -b feat/force-squash`.cwd(repoDir).quiet()
+            await writeFile(join(repoDir, 'first.txt'), 'first\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "wip: first unsigned"`.cwd(repoDir).quiet()
+
+            await writeFile(join(repoDir, 'second.txt'), 'second\n')
+            await $`git add -A`.cwd(repoDir).quiet()
+            await $`git commit -m "wip: second unsigned"`.cwd(repoDir).quiet()
+
+            const result = await spawnDco(['push', '--yes-signoff', '--force'], { cwd: repoDir })
+
+            if (result.exitCode !== 0) {
+                console.error('CLI output:', result.output)
+            }
+            expect(result.exitCode).toBe(0)
+            expect(result.output).toContain('Squashed 2 unsigned commit')
+            expect(result.output).toContain('Pushed to remote')
+
+            // Verify the commit on remote has Signed-off-by
+            const bareLog = await $`git log -1 --format=%B feat/force-squash`.cwd(bareDir).text()
+            expect(bareLog).toContain('Signed-off-by:')
+
+            // Verify both files are present
+            expect(existsSync(join(repoDir, 'first.txt'))).toBe(true)
+            expect(existsSync(join(repoDir, 'second.txt'))).toBe(true)
+        })
+
         it('should only squash commits back to the last signed one', async function () {
             const { repoDir } = await createPushTestRepo('cli-push-partial')
 

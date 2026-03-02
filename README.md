@@ -58,7 +58,7 @@ Also see [Github Action](#github-action) below.
 Use `dco push` to combine unsigned local commits on a branch into a single DCO-signed commit and push:
 
 ```
-bunx @stream44.studio/dco push [-m "<commit message>"] [-- <git push args>]
+bunx @stream44.studio/dco push [-m "<commit message>"] [--force] [-- <git push args>]
 ```
 
 This is the recommended workflow for contributors:
@@ -75,6 +75,8 @@ The push command will:
 - Soft-reset to that commit, preserving all changes in the working tree
 - Run the DCO commit process to create a single signed commit
 - Push to the remote with any additional arguments you provide
+
+Use `--force` to force-push the branch, ignoring what exists on the remote. This is useful when you have rewritten history locally and need to overwrite the remote branch.
 
 
 Tools

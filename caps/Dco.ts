@@ -437,6 +437,7 @@ export async function capsule({
                         signingKeyPath?: string
                         pushArgs?: string[]
                         message?: string
+                        force?: boolean
                     }) {
                         const { repoDir } = context
 
@@ -473,7 +474,8 @@ export async function capsule({
                         if (unsignedCount === 0) {
                             // All commits are already signed — just push
                             const pushArgs = context.pushArgs || []
-                            await $`git push -u origin HEAD ${pushArgs}`.cwd(repoDir)
+                            const forceArgs = context.force ? ['--force'] : []
+                            await $`git push -u origin HEAD ${forceArgs} ${pushArgs}`.cwd(repoDir)
                             return { pushed: true, squashed: false, unsignedCount: 0 }
                         }
 
@@ -512,7 +514,8 @@ export async function capsule({
 
                         // 7. Push to remote
                         const pushArgs = context.pushArgs || []
-                        await $`git push -u origin HEAD ${pushArgs}`.cwd(repoDir)
+                        const forceArgs = context.force ? ['--force'] : []
+                        await $`git push -u origin HEAD ${forceArgs} ${pushArgs}`.cwd(repoDir)
 
                         return { pushed: true, squashed: true, unsignedCount }
                     }

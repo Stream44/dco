@@ -186,6 +186,7 @@ program
     .option('--signing-key <path>', 'SSH key for cryptographic signing')
     .option('--yes-signoff', 'Auto-agree to DCO terms')
     .option('-m, --message <message>', 'Override the squashed commit message')
+    .option('--force', 'Force-push the branch')
     .argument('[pushArgs...]', 'Additional arguments passed through to git push')
     .action(async (pushArgs: string[], opts) => {
         const repoDir = resolve(process.cwd())
@@ -202,6 +203,7 @@ program
                     signingKeyPath: opts.signingKey ? resolve(opts.signingKey) : undefined,
                     pushArgs: pushArgs.length > 0 ? pushArgs : undefined,
                     message: opts.message || undefined,
+                    force: opts.force || false,
                 })
 
                 if (result.squashed) {
