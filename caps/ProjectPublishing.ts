@@ -27,11 +27,11 @@ export async function capsule({
                 },
                 SigningKey: {
                     type: CapsulePropertyTypes.Mapping,
-                    value: 't44/caps/SigningKey'
+                    value: '@stream44.studio/t44/caps/SigningKey'
                 },
                 ProjectRepository: {
                     type: CapsulePropertyTypes.Mapping,
-                    value: 't44/caps/ProjectRepository'
+                    value: '@stream44.studio/t44/caps/ProjectRepository'
                 },
                 validateSource: {
                     type: CapsulePropertyTypes.Function,
@@ -52,7 +52,7 @@ export async function capsule({
                 push: {
                     type: CapsulePropertyTypes.Function,
                     value: async function (this: any, { config, ctx }: { config: any, ctx: any }) {
-                        const gitMeta = ctx.metadata['t44/caps/patterns/git-scm.com/ProjectPublishing']
+                        const gitMeta = ctx.metadata['@stream44.studio/t44/caps/patterns/git-scm.com/ProjectPublishing']
                         if (!gitMeta?.stageDir) return
 
                         const stageDir = gitMeta.stageDir
