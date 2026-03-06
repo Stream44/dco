@@ -453,7 +453,21 @@ export async function capsule({
                             throw new Error('Working directory has uncommitted changes. Commit or stash them first.')
                         }
 
-                        // 3. Find the last commit with Signed-off-by, walking back from HEAD
+                        // 3. Fetch remote to know current remote state
+                        await $`git fetch origin`.cwd(repoDir).quiet().nothrow()
+
+                        // 4. Check if remote tracking branch exists and determine relationship
+                        const remoteRef = `origin/${branch}`
+                        const remoteExists = (await $`git rev-parse --verify ${remoteRef}`.cwd(repoDir).quiet().nothrow()).exitCode === 0
+
+                        let localContainsRemote = true
+                        if (remoteExists) {
+                            // Check if local already contains all remote commits (e.g. after merge/conflict resolution)
+                            const behindCount = (await $`git rev-list --count HEAD..${remoteRef}`.cwd(repoDir).quiet().nothrow().text()).trim()
+                            localContainsRemote = behindCount === '0'
+                        }
+
+                        // 5. Find the last commit with Signed-off-by, walking back from HEAD
                         const logOutput = (await $`git log --format=%H%n%B%n---END---`.cwd(repoDir).text()).trim()
                         const entries = logOutput.split('---END---').filter((e: string) => e.trim())
 
@@ -473,13 +487,65 @@ export async function capsule({
 
                         if (unsignedCount === 0) {
                             // All commits are already signed — just push
+                            // Use --force-with-lease if local has diverged from remote (e.g. after
+                            // a previous squash + merge conflict resolution) to safely overwrite
                             const pushArgs = context.pushArgs || []
-                            const forceArgs = context.force ? ['--force'] : []
+                            let forceArgs: string[] = []
+                            if (context.force) {
+                                forceArgs = ['--force']
+                            } else if (remoteExists && !localContainsRemote) {
+                                // Local diverged from remote but all commits are signed —
+                                // this should not normally happen, push normally and let git
+                                // report the error so the user can decide
+                                forceArgs = []
+                            }
                             await $`git push -u origin HEAD ${forceArgs} ${pushArgs}`.cwd(repoDir)
                             return { pushed: true, squashed: false, unsignedCount: 0 }
                         }
 
-                        // 4. Collect commit messages from unsigned commits for the squashed message
+                        // 6. If remote has commits we don't have, rebase on top of remote first
+                        //    This integrates remote changes (e.g. other contributors' DCO signatures)
+                        //    before we squash, preventing conflicts during push.
+                        if (remoteExists && !localContainsRemote) {
+                            const rebaseResult = await $`git rebase ${remoteRef}`.cwd(repoDir).quiet().nothrow()
+                            if (rebaseResult.exitCode !== 0) {
+                                // Rebase failed (conflict) — abort and let user handle it
+                                await $`git rebase --abort`.cwd(repoDir).quiet().nothrow()
+                                throw new Error(
+                                    `Cannot automatically integrate remote changes from '${remoteRef}'. ` +
+                                    `Please run 'git pull --rebase origin ${branch}' and resolve conflicts manually, then retry.`
+                                )
+                            }
+
+                            // Re-scan commits after rebase since history changed
+                            const logOutput2 = (await $`git log --format=%H%n%B%n---END---`.cwd(repoDir).text()).trim()
+                            const entries2 = logOutput2.split('---END---').filter((e: string) => e.trim())
+                            lastSignedHash = null
+                            unsignedCount = 0
+                            entries.length = 0
+                            for (const e of entries2) entries.push(e)
+
+                            for (const entry of entries) {
+                                const lines = entry.trim().split('\n')
+                                const hash = lines[0].trim()
+                                const body = lines.slice(1).join('\n')
+                                if (body.includes('Signed-off-by:')) {
+                                    lastSignedHash = hash
+                                    break
+                                }
+                                unsignedCount++
+                            }
+
+                            if (unsignedCount === 0) {
+                                // After rebase, all commits are signed — push normally
+                                const pushArgs = context.pushArgs || []
+                                const forceArgs = context.force ? ['--force'] : ['--force-with-lease']
+                                await $`git push -u origin HEAD ${forceArgs} ${pushArgs}`.cwd(repoDir)
+                                return { pushed: true, squashed: false, unsignedCount: 0 }
+                            }
+                        }
+
+                        // 7. Collect commit messages from unsigned commits for the squashed message
                         const unsignedMessages: string[] = []
                         for (let i = 0; i < unsignedCount; i++) {
                             const lines = entries[i].trim().split('\n')
@@ -495,7 +561,7 @@ export async function capsule({
                                 : unsignedMessages.map((m: string, i: number) => `${i + 1}. ${m.split('\n')[0]}`).join('\n')
                         )
 
-                        // 5. Soft-reset to the last signed commit (or to root if none found)
+                        // 8. Soft-reset to the last signed commit (or to root if none found)
                         if (lastSignedHash) {
                             await $`git reset --soft ${lastSignedHash}`.cwd(repoDir)
                         } else {
@@ -504,7 +570,7 @@ export async function capsule({
                             await $`git update-ref -d HEAD`.cwd(repoDir)
                         }
 
-                        // 6. Run DCO commit with all the staged changes
+                        // 9. Run DCO commit with all the staged changes
                         await this.sign({
                             repoDir,
                             autoAgree: context.autoAgree,
@@ -512,9 +578,9 @@ export async function capsule({
                             gitArgs: ['-m', squashMessage],
                         })
 
-                        // 7. Push to remote
+                        // 10. Push to remote — use --force-with-lease since squashing rewrites history
                         const pushArgs = context.pushArgs || []
-                        const forceArgs = context.force ? ['--force'] : []
+                        const forceArgs = context.force ? ['--force'] : ['--force-with-lease']
                         await $`git push -u origin HEAD ${forceArgs} ${pushArgs}`.cwd(repoDir)
 
                         return { pushed: true, squashed: true, unsignedCount }
