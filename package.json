@@ -28,8 +28,8 @@
         "validate": "./validate.sh"
     },
     "dependencies": {
-        "@stream44.studio/encapsulate": "^0.4.0-rc.32",
-        "@stream44.studio/t44": "^0.4.0-rc.34",
+        "@stream44.studio/encapsulate": "^0.4.0-rc.34",
+        "@stream44.studio/t44": "^0.4.0-rc.35",
         "commander": "^14.0.0",
         "chalk": "^5.6.2",
         "inquirer": "^12.4.0"
