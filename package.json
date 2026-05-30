@@ -1,6 +1,6 @@
 {
     "name": "@stream44.studio/dco",
-    "version": "0.3.0-rc.36",
+    "version": "0.3.0-rc.37",
     "description": "Developer Certificate of Origin (DCO) tools for signing & verifying.",
     "private": false,
     "keywords": [
@@ -28,8 +28,8 @@
         "validate": "./validate.sh"
     },
     "dependencies": {
-        "@stream44.studio/encapsulate": "^0.4.0-rc.42",
-        "@stream44.studio/t44": "^0.4.0-rc.39",
+        "@stream44.studio/encapsulate": "^0.4.0-rc.43",
+        "@stream44.studio/t44": "^0.4.0-rc.40",
         "commander": "^14.0.0",
         "chalk": "^5.6.2",
         "inquirer": "^12.4.0"
